@@ -1,0 +1,12 @@
+services:
+  claude:
+    build: .
+    user: "1000:1000"
+    volumes:
+      - .:/workspace
+      - ~/.claude:/home/claude/.claude
+    stdin_open: true
+    tty: true
+    working_dir: /workspace
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
