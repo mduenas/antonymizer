@@ -199,10 +199,12 @@ Screenshots are saved to: `screenshots/screenshots/*.png`
 
 ## Device Configurations
 
-Roborazzi provides device qualifiers for common devices:
+### Google Play Store (Android)
+
+Roborazzi provides device qualifiers for common Android devices:
 
 ```kotlin
-// Pixel 6 (1080x2400)
+// Pixel 6 (1080x2400) - Recommended for Play Store
 @Config(qualifiers = RobolectricDeviceQualifiers.Pixel6)
 
 // Pixel 7 Pro (1440x3120)
@@ -215,13 +217,69 @@ Roborazzi provides device qualifiers for common devices:
 @Config(qualifiers = RobolectricDeviceQualifiers.NexusTablet)
 ```
 
-## Tips for Play Store Screenshots
+### Apple App Store (iOS)
 
-1. **Resolution**: Pixel 6 (1080x2400) is ideal for most Play Store requirements
-2. **Both themes**: Generate both light and dark mode screenshots
-3. **Demo data**: Use realistic but impressive demo data (high scores, achievements)
-4. **Key screens**: Home, main gameplay, results/achievements, settings
-5. **Naming convention**: Use descriptive names like `homeScreen_experiencedPlayer.png`
+App Store requires **exact pixel dimensions**. Use custom qualifiers with xxhdpi (480 dpi) density:
+
+```kotlin
+// iPhone 6.7" (1290 x 2796) - iPhone 15 Pro Max, 14 Pro Max
+// Calculation: 1290/3 = 430dp, 2796/3 = 932dp
+@Config(sdk = [34], qualifiers = "w430dp-h932dp-xxhdpi")
+
+// iPhone 6.5" (1284 x 2778) - iPhone 14 Plus, 13 Pro Max, 12 Pro Max, 11 Pro Max
+// Calculation: 1284/3 = 428dp, 2778/3 = 926dp
+@Config(sdk = [34], qualifiers = "w428dp-h926dp-xxhdpi")
+
+// iPhone 5.5" (1242 x 2208) - iPhone 8 Plus, 7 Plus, 6s Plus
+// Calculation: 1242/3 = 414dp, 2208/3 = 736dp
+@Config(sdk = [34], qualifiers = "w414dp-h736dp-xxhdpi")
+```
+
+**How the calculation works:**
+- App Store requires exact pixel dimensions
+- Using xxhdpi (480 dpi): `pixels = dp * 3`
+- So: `dp = pixels / 3`
+- Width and height in dp go into the qualifier string
+
+### Output Organization
+
+For multi-store support, organize screenshots by platform:
+
+```
+screenshots/
+├── screenshots/           # Play Store (Pixel 6)
+│   ├── homeScreen.png
+│   └── ...
+└── ios/
+    ├── iphone67/         # App Store 6.7"
+    │   ├── homeScreen.png
+    │   └── ...
+    ├── iphone65/         # App Store 6.5"
+    │   └── ...
+    └── iphone55/         # App Store 5.5"
+        └── ...
+```
+
+## Tips for Store Screenshots
+
+### Play Store
+1. **Resolution**: Pixel 6 (1080x2400) is ideal
+2. **Aspect ratio**: 16:9 or 9:16 recommended
+3. **File format**: PNG or JPEG
+4. **Max size**: 8MB per image
+
+### App Store
+1. **Exact dimensions required** - no flexibility
+2. **iPhone 6.7"**: 1290 x 2796 (required for iPhone 15 Pro Max)
+3. **iPhone 6.5"**: 1284 x 2778 (required for older Max models)
+4. **iPhone 5.5"**: 1242 x 2208 (required for Plus models)
+5. **File format**: PNG or JPEG
+
+### Both Stores
+1. **Both themes**: Generate light and dark mode screenshots
+2. **Demo data**: Use realistic but impressive demo data
+3. **Key screens**: Home, main gameplay, results/achievements, settings
+4. **Naming convention**: Use descriptive names like `homeScreen_experiencedPlayer.png`
 
 ## Troubleshooting
 
