@@ -33,6 +33,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import com.markduenas.antonymizer.ui.theme.CorrectGreen
 import com.markduenas.antonymizer.ui.theme.IncorrectRed
@@ -88,7 +89,8 @@ enum class AnswerButtonState {
     SELECTED,
     CORRECT,
     INCORRECT,
-    DISABLED
+    DISABLED,
+    ELIMINATED  // Crossed out by hint
 }
 
 @Composable
@@ -106,6 +108,7 @@ fun AnswerButton(
             AnswerButtonState.CORRECT -> CorrectGreen
             AnswerButtonState.INCORRECT -> IncorrectRed
             AnswerButtonState.DISABLED -> MaterialTheme.colorScheme.surfaceVariant
+            AnswerButtonState.ELIMINATED -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
         },
         animationSpec = tween(200)
     )
@@ -117,6 +120,7 @@ fun AnswerButton(
             AnswerButtonState.CORRECT -> CorrectGreen
             AnswerButtonState.INCORRECT -> IncorrectRed
             AnswerButtonState.DISABLED -> MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
+            AnswerButtonState.ELIMINATED -> IncorrectRed.copy(alpha = 0.5f)
         },
         animationSpec = tween(200)
     )
@@ -124,8 +128,12 @@ fun AnswerButton(
     val textColor = when (state) {
         AnswerButtonState.CORRECT, AnswerButtonState.INCORRECT -> Color.White
         AnswerButtonState.DISABLED -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+        AnswerButtonState.ELIMINATED -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
         else -> MaterialTheme.colorScheme.onSurface
     }
+
+    val isClickable = enabled && state == AnswerButtonState.DEFAULT
+    val textDecoration = if (state == AnswerButtonState.ELIMINATED) TextDecoration.LineThrough else null
 
     Surface(
         modifier = modifier
@@ -133,7 +141,7 @@ fun AnswerButton(
             .height(56.dp)
             .clip(RoundedCornerShape(16.dp))
             .border(2.dp, borderColor, RoundedCornerShape(16.dp))
-            .clickable(enabled = enabled && state == AnswerButtonState.DEFAULT) { onClick() },
+            .clickable(enabled = isClickable) { onClick() },
         color = backgroundColor,
         shape = RoundedCornerShape(16.dp)
     ) {
@@ -145,7 +153,8 @@ fun AnswerButton(
                 text = text,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Medium,
-                color = textColor
+                color = textColor,
+                textDecoration = textDecoration
             )
         }
     }

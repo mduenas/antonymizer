@@ -4,10 +4,23 @@ import ComposeApp
 
 struct ComposeView: UIViewControllerRepresentable {
     func makeUIViewController(context: Context) -> UIViewController {
-        MainViewControllerKt.MainViewController()
+        // Set up the native ad provider before creating the main view controller
+        NativeAdProviderHolder.shared.provider = IosAdHelper.shared
+
+        let viewController = MainViewControllerKt.MainViewController()
+
+        // Set the root view controller for ad presentation
+        DispatchQueue.main.async {
+            IosAdHelper.shared.setRootViewController(viewController)
+        }
+
+        return viewController
     }
 
-    func updateUIViewController(_ uiViewController: UIViewController, context: Context) {}
+    func updateUIViewController(_ uiViewController: UIViewController, context: Context) {
+        // Update root view controller reference if needed
+        IosAdHelper.shared.setRootViewController(uiViewController)
+    }
 }
 
 struct ContentView: View {

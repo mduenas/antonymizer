@@ -49,12 +49,34 @@ import com.markduenas.antonymizer.ui.theme.IncorrectRed
 @Composable
 fun GameScreen(
     gameState: GameState,
+    rewardedAdReady: Boolean = false,
     onAnswerSelected: (String) -> Unit,
     onStartMatch: () -> Unit,
     onExitGame: () -> Unit,
+    onHintRequested: (onRewarded: () -> Unit, onDismissed: () -> Unit) -> Unit = { _, onDismissed -> onDismissed() },
     onMatchComplete: (MatchResult) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    // Track hints used per match (max 2)
+    var hintsUsedInMatch by remember { mutableStateOf(0) }
+    var eliminatedOptions by remember { mutableStateOf<Set<String>>(emptySet()) }
+
+    // Reset hints when match restarts
+    val currentMatchState = gameState
+    if (currentMatchState is GameState.MatchReady) {
+        hintsUsedInMatch = 0
+        eliminatedOptions = emptySet()
+    }
+    // Reset eliminated options when question changes
+    if (currentMatchState is GameState.QuestionActive) {
+        val questionKey = "${currentMatchState.roundNumber}-${currentMatchState.questionNumber}"
+        val lastQuestionKey = remember { mutableStateOf("") }
+        if (lastQuestionKey.value != questionKey) {
+            eliminatedOptions = emptySet()
+            lastQuestionKey.value = questionKey
+        }
+    }
+
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -94,7 +116,26 @@ fun GameScreen(
                     QuestionActiveContent(
                         state = state,
                         onAnswerSelected = onAnswerSelected,
-                        onExit = onExitGame
+                        onExit = onExitGame,
+                        hintsUsedInMatch = hintsUsedInMatch,
+                        eliminatedOptions = eliminatedOptions,
+                        rewardedAdReady = rewardedAdReady,
+                        onHintRequested = {
+                            onHintRequested(
+                                {
+                                    // Hint granted - eliminate 2 wrong answers
+                                    hintsUsedInMatch++
+                                    val wrongOptions = state.question.options
+                                        .filter { it != state.question.correctAnswer }
+                                        .shuffled()
+                                        .take(2)
+                                    eliminatedOptions = wrongOptions.toSet()
+                                },
+                                {
+                                    // Ad dismissed early or failed
+                                }
+                            )
+                        }
                     )
                 }
 
@@ -218,9 +259,14 @@ private fun RoundStartingContent(
 private fun QuestionActiveContent(
     state: GameState.QuestionActive,
     onAnswerSelected: (String) -> Unit,
-    onExit: () -> Unit
+    onExit: () -> Unit,
+    hintsUsedInMatch: Int = 0,
+    eliminatedOptions: Set<String> = emptySet(),
+    rewardedAdReady: Boolean = false,
+    onHintRequested: () -> Unit = {}
 ) {
     var selectedAnswer by remember(state.questionNumber) { mutableStateOf<String?>(null) }
+    val canUseHint = hintsUsedInMatch < 2 && rewardedAdReady && !state.playerAnswered && eliminatedOptions.isEmpty()
 
     Column(
         modifier = Modifier.fillMaxSize()
@@ -235,8 +281,19 @@ private fun QuestionActiveContent(
                 currentRound = state.roundNumber,
                 totalRounds = 5
             )
-            TextButton(onClick = onExit) {
-                Text("Exit")
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Hint button
+                if (canUseHint) {
+                    TextButton(onClick = onHintRequested) {
+                        Text("Hint (${2 - hintsUsedInMatch})")
+                    }
+                }
+                TextButton(onClick = onExit) {
+                    Text("Exit")
+                }
             }
         }
 
@@ -296,7 +353,9 @@ private fun QuestionActiveContent(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             state.question.options.forEach { option ->
+                val isEliminated = eliminatedOptions.contains(option)
                 val buttonState = when {
+                    isEliminated -> AnswerButtonState.ELIMINATED
                     state.playerAnswered && selectedAnswer == option -> AnswerButtonState.SELECTED
                     state.playerAnswered -> AnswerButtonState.DISABLED
                     else -> AnswerButtonState.DEFAULT
@@ -306,12 +365,12 @@ private fun QuestionActiveContent(
                     text = option,
                     state = buttonState,
                     onClick = {
-                        if (!state.playerAnswered) {
+                        if (!state.playerAnswered && !isEliminated) {
                             selectedAnswer = option
                             onAnswerSelected(option)
                         }
                     },
-                    enabled = !state.playerAnswered
+                    enabled = !state.playerAnswered && !isEliminated
                 )
             }
         }

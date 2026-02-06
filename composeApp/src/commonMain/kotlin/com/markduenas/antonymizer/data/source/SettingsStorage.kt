@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -29,6 +30,12 @@ object PreferencesKeys {
     val PLAYER_STATS = stringPreferencesKey("player_stats")
     val LEADERBOARD = stringPreferencesKey("leaderboard")
     val GAMES_PLAYED = intPreferencesKey("games_played")
+
+    // Monetization keys
+    val ADS_REMOVED = booleanPreferencesKey("ads_removed")
+    val HINT_TOKENS = intPreferencesKey("hint_tokens")
+    val LAST_INTERSTITIAL_TIME = longPreferencesKey("last_interstitial_time")
+    val TOTAL_ADS_WATCHED = intPreferencesKey("total_ads_watched")
 }
 
 class SettingsStorage(private val dataStore: DataStore<Preferences>) {
@@ -100,6 +107,48 @@ class SettingsStorage(private val dataStore: DataStore<Preferences>) {
     suspend fun setLeaderboard(leaderboardJson: String) {
         dataStore.edit { preferences ->
             preferences[PreferencesKeys.LEADERBOARD] = leaderboardJson
+        }
+    }
+
+    // Monetization preferences
+    val adsRemoved: Flow<Boolean> = dataStore.data.map { preferences ->
+        preferences[PreferencesKeys.ADS_REMOVED] ?: false
+    }
+
+    val hintTokens: Flow<Int> = dataStore.data.map { preferences ->
+        preferences[PreferencesKeys.HINT_TOKENS] ?: 0
+    }
+
+    val lastInterstitialTime: Flow<Long> = dataStore.data.map { preferences ->
+        preferences[PreferencesKeys.LAST_INTERSTITIAL_TIME] ?: 0L
+    }
+
+    val totalAdsWatched: Flow<Int> = dataStore.data.map { preferences ->
+        preferences[PreferencesKeys.TOTAL_ADS_WATCHED] ?: 0
+    }
+
+    suspend fun setAdsRemoved(removed: Boolean) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.ADS_REMOVED] = removed
+        }
+    }
+
+    suspend fun setHintTokens(tokens: Int) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.HINT_TOKENS] = tokens
+        }
+    }
+
+    suspend fun setLastInterstitialTime(time: Long) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.LAST_INTERSTITIAL_TIME] = time
+        }
+    }
+
+    suspend fun incrementAdsWatched() {
+        dataStore.edit { preferences ->
+            val current = preferences[PreferencesKeys.TOTAL_ADS_WATCHED] ?: 0
+            preferences[PreferencesKeys.TOTAL_ADS_WATCHED] = current + 1
         }
     }
 }

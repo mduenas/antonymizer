@@ -8,7 +8,9 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -20,6 +22,7 @@ import com.markduenas.antonymizer.domain.game.GameState
 import com.markduenas.antonymizer.domain.game.MatchResult
 import com.markduenas.antonymizer.domain.game.RoundResult
 import com.markduenas.antonymizer.domain.game.Winner
+import com.markduenas.antonymizer.monetization.MonetizationState
 import com.markduenas.antonymizer.ui.navigation.AppViewModel
 import com.markduenas.antonymizer.ui.navigation.Screen
 import com.markduenas.antonymizer.ui.screens.game.GameScreen
@@ -30,7 +33,7 @@ import com.markduenas.antonymizer.ui.screens.settings.SettingsScreen
 import com.markduenas.antonymizer.ui.theme.AntonymArenaTheme
 
 @Composable
-fun App(settingsStorage: SettingsStorage) {
+fun App(settingsStorage: SettingsStorage, monetizationState: MonetizationState) {
     AntonymArenaTheme {
         Surface(
             modifier = Modifier
@@ -47,6 +50,12 @@ fun App(settingsStorage: SettingsStorage) {
             val vibrationEnabled by viewModel.vibrationEnabled.collectAsState()
             val leaderboard by viewModel.leaderboard.collectAsState()
             val gameState by viewModel.gameState.collectAsState()
+
+            // Monetization state
+            val adsRemoved by monetizationState.adsRemoved.collectAsState()
+            val rewardedReady by monetizationState.rewardedReady.collectAsState()
+            val removeAdsPrice by monetizationState.removeAdsPrice.collectAsState()
+            val purchaseState by monetizationState.purchaseState.collectAsState()
 
             NavHost(
                 navController = navController,
@@ -75,6 +84,7 @@ fun App(settingsStorage: SettingsStorage) {
 
                     GameScreen(
                         gameState = gameState,
+                        rewardedAdReady = rewardedReady,
                         onAnswerSelected = { answer ->
                             viewModel.submitAnswer(answer)
                         },
@@ -85,23 +95,30 @@ fun App(settingsStorage: SettingsStorage) {
                             viewModel.resetGame()
                             navController.popBackStack(Screen.Home, inclusive = false)
                         },
+                        onHintRequested = { onRewarded, onDismissed ->
+                            monetizationState.adManager.showRewardedAd(onRewarded, onDismissed)
+                        },
                         onMatchComplete = { result ->
                             viewModel.onMatchComplete(result)
                             viewModel.resetGame()
-                            navController.navigate(
-                                Screen.Results(
-                                    playerScore = result.playerTotalScore,
-                                    botScore = result.botTotalScore,
-                                    playerRoundsWon = result.playerRoundsWon,
-                                    botRoundsWon = result.botRoundsWon,
-                                    winner = result.winner.name,
-                                    longestStreak = result.longestStreak,
-                                    fastestAnswer = result.fastestAnswer,
-                                    accuracy = result.accuracy,
-                                    difficulty = difficulty.name
-                                )
-                            ) {
-                                popUpTo(Screen.Home) { inclusive = false }
+
+                            // Show interstitial ad before navigating to results
+                            monetizationState.adManager.showInterstitialIfEligible {
+                                navController.navigate(
+                                    Screen.Results(
+                                        playerScore = result.playerTotalScore,
+                                        botScore = result.botTotalScore,
+                                        playerRoundsWon = result.playerRoundsWon,
+                                        botRoundsWon = result.botRoundsWon,
+                                        winner = result.winner.name,
+                                        longestStreak = result.longestStreak,
+                                        fastestAnswer = result.fastestAnswer,
+                                        accuracy = result.accuracy,
+                                        difficulty = difficulty.name
+                                    )
+                                ) {
+                                    popUpTo(Screen.Home) { inclusive = false }
+                                }
                             }
                         }
                     )
@@ -127,6 +144,7 @@ fun App(settingsStorage: SettingsStorage) {
                     ResultsScreen(
                         result = result,
                         difficulty = difficulty,
+                        rewardedAdReady = rewardedReady,
                         onPlayAgain = {
                             viewModel.startGame(difficulty)
                             navController.navigate(Screen.Game(difficulty.name)) {
@@ -135,6 +153,12 @@ fun App(settingsStorage: SettingsStorage) {
                         },
                         onGoHome = {
                             navController.popBackStack(Screen.Home, inclusive = false)
+                        },
+                        onContinueRequested = { onRewarded, onDismissed ->
+                            monetizationState.adManager.showRewardedAd(onRewarded, onDismissed)
+                        },
+                        onBonusPointsRequested = { onRewarded, onDismissed ->
+                            monetizationState.adManager.showRewardedAd(onRewarded, onDismissed)
                         }
                     )
                 }
@@ -153,6 +177,9 @@ fun App(settingsStorage: SettingsStorage) {
                         playerName = playerName,
                         soundEnabled = soundEnabled,
                         vibrationEnabled = vibrationEnabled,
+                        adsRemoved = adsRemoved,
+                        removeAdsPrice = removeAdsPrice,
+                        purchaseState = purchaseState,
                         onPlayerNameChange = { name ->
                             viewModel.setPlayerName(name)
                         },
@@ -164,6 +191,12 @@ fun App(settingsStorage: SettingsStorage) {
                         },
                         onClearData = {
                             viewModel.clearAllData()
+                        },
+                        onRemoveAdsPurchase = {
+                            monetizationState.billingManager.purchaseRemoveAds()
+                        },
+                        onRestorePurchases = {
+                            monetizationState.billingManager.restorePurchases()
                         },
                         onBackClick = {
                             navController.popBackStack()
