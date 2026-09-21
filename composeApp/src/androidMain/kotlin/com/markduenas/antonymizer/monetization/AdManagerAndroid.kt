@@ -2,6 +2,7 @@ package com.markduenas.antonymizer.monetization
 
 import android.app.Activity
 import android.content.Context
+import android.content.pm.ApplicationInfo
 import android.util.Log
 import com.google.android.gms.ads.AdError
 import com.google.android.gms.ads.AdRequest
@@ -27,7 +28,10 @@ import java.lang.ref.WeakReference
 /**
  * Android implementation of AdManager using Google AdMob.
  *
- * Test Ad Unit IDs (for development):
+ * Debug / debuggable builds always use Google sample test ad unit IDs so
+ * local and internal testing never generate real impressions.
+ *
+ * Test Ad Unit IDs (Google sample):
  * - Interstitial: ca-app-pub-3940256099942544/1033173712
  * - Rewarded: ca-app-pub-3940256099942544/5224354917
  */
@@ -41,11 +45,23 @@ class AdManagerAndroid(
         private const val TAG = "AdManagerAndroid"
 
         // Production ad unit IDs
-        private const val INTERSTITIAL_AD_UNIT_ID = "ca-app-pub-7540731406850248/9172618012"
-        private const val REWARDED_AD_UNIT_ID = "ca-app-pub-7540731406850248/5811221418"
+        private const val PROD_INTERSTITIAL_AD_UNIT_ID = "ca-app-pub-7540731406850248/9172618012"
+        private const val PROD_REWARDED_AD_UNIT_ID = "ca-app-pub-7540731406850248/5811221418"
+
+        // Google sample test ad unit IDs
+        private const val TEST_INTERSTITIAL_AD_UNIT_ID = "ca-app-pub-3940256099942544/1033173712"
+        private const val TEST_REWARDED_AD_UNIT_ID = "ca-app-pub-3940256099942544/5224354917"
     }
 
     private val contextRef = WeakReference(context)
+    private val useTestAds: Boolean =
+        (context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
+
+    private val interstitialAdUnitId: String
+        get() = if (useTestAds) TEST_INTERSTITIAL_AD_UNIT_ID else PROD_INTERSTITIAL_AD_UNIT_ID
+
+    private val rewardedAdUnitId: String
+        get() = if (useTestAds) TEST_REWARDED_AD_UNIT_ID else PROD_REWARDED_AD_UNIT_ID
     private var activityRef: WeakReference<Activity>? = null
 
     private var interstitialAd: InterstitialAd? = null
@@ -67,6 +83,20 @@ class AdManagerAndroid(
 
         val context = contextRef.get() ?: return
 
+        // Register test devices so dev/QA taps never count as real ad traffic
+        // (Google logs your device's real hash to Logcat the first time an ad
+        // loads on it: "Use RequestConfiguration.Builder().setTestDeviceIds(...)"
+        // - copy that hash into the list below.)
+        MobileAds.setRequestConfiguration(
+            com.google.android.gms.ads.RequestConfiguration.Builder()
+                .setTestDeviceIds(
+                    listOf(
+                        com.google.android.gms.ads.AdRequest.DEVICE_ID_EMULATOR
+                        // "ADD_YOUR_REAL_DEVICE_HASH_HERE",
+                    )
+                )
+                .build()
+        )
         MobileAds.initialize(context) { initializationStatus ->
             Log.d(TAG, "AdMob initialized: ${initializationStatus.adapterStatusMap}")
             isInitialized = true
@@ -89,7 +119,7 @@ class AdManagerAndroid(
 
         InterstitialAd.load(
             context,
-            INTERSTITIAL_AD_UNIT_ID,
+            interstitialAdUnitId,
             adRequest,
             object : InterstitialAdLoadCallback() {
                 override fun onAdLoaded(ad: InterstitialAd) {
@@ -115,7 +145,7 @@ class AdManagerAndroid(
 
         RewardedAd.load(
             context,
-            REWARDED_AD_UNIT_ID,
+            rewardedAdUnitId,
             adRequest,
             object : RewardedAdLoadCallback() {
                 override fun onAdLoaded(ad: RewardedAd) {

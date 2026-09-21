@@ -17,7 +17,7 @@
       "type": "http",
       "url": "http://localhost:8000/mcp",
       "headers": {
-        "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiM2JiM2E1MmItNzgxZi00NTE3LWEwYTUtZjEzNWQxZWZiMDFkIiwidGFibGVfbmFtZSI6Im1lbV8zYmIzYTUyYl83ODFmXzQ1MTdfYTBhNV9mMTM1ZDFlZmIwMWQiLCJjcmVhdGVkX2F0IjoiMjAyNi0wNC0xMFQxNjo1NTo0NS40Nzc1NjciLCJleHAiOjE3Nzg0NTM3NDV9.l8h9c0fHtrONX7opslAyx5WTGrIw926LEPXrNoPPN38"
+        "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiZDhmYTQ5N2QtZDY4Zi00MTg5LTg3YjEtNTQ4NmZlYThkOGNiIiwidGFibGVfbmFtZSI6Im1lbV9kOGZhNDk3ZF9kNjhmXzQxODlfODdiMV81NDg2ZmVhOGQ4Y2IiLCJjcmVhdGVkX2F0IjoiMjAyNi0wNC0xMFQxNzozMjoxMi41ODU1NTIiLCJleHAiOjE4MDczOTk5MzJ9.dRq6B-3eZMZ9PGVSgmMhmxZ44epFbIGO4mU6MuOmXbk"
       }
     }
   }

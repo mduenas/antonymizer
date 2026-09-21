@@ -15,9 +15,9 @@ import kotlinx.coroutines.launch
 /**
  * iOS implementation of AdManager using native AdMob SDK via NativeAdProvider.
  *
- * Production ad unit IDs (configured in AdHelper.swift):
- * - Interstitial: ca-app-pub-7540731406850248/7667964658
- * - Rewarded: ca-app-pub-7540731406850248/6932731399
+ * Ad unit IDs are selected in AdHelper.swift:
+ * - Debug: Google sample interstitial/rewarded test units
+ * - Release: production ca-app-pub-7540731406850248/... units
  */
 class AdManagerIos(
     private val settingsStorage: SettingsStorage,

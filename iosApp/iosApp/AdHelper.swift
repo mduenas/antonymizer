@@ -10,9 +10,16 @@ import ComposeApp
     // MARK: - Singleton
     @objc public static let shared = IosAdHelper()
 
-    // MARK: - Production Ad Unit IDs
+    // MARK: - Ad Unit IDs
+    // Debug builds always use Google sample test units so TestFlight-style
+    // local runs never generate real impressions. Release uses production.
+    #if DEBUG
+    private let interstitialAdUnitID = "ca-app-pub-3940256099942544/4411468910"
+    private let rewardedAdUnitID = "ca-app-pub-3940256099942544/1712485313"
+    #else
     private let interstitialAdUnitID = "ca-app-pub-7540731406850248/7667964658"
     private let rewardedAdUnitID = "ca-app-pub-7540731406850248/6932731399"
+    #endif
 
     // MARK: - Ad State
     private var interstitialAd: GADInterstitialAd?
