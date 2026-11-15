@@ -4,11 +4,11 @@ Paste-ready text is in the sibling `.txt` files. Limits were counted on the text
 
 | Field | File | Length | Limit |
 | --- | --- | --- | --- |
-| App name | `title.txt` | 11 | 30 |
-| Short description | `short_description.txt` | 74 | 80 |
-| Full description | `full_description.txt` | 1686 | 4000 |
+| App name | `title.txt` | 13 | 30 |
+| Short description | `short_description.txt` | 71 | 80 |
+| Full description | `full_description.txt` | 1688 | 4000 |
 
-The Play name in `title.txt` stays **Antonymizer**, which is the launcher label. The home screen says "ANTONYM ARENA" and Settings → About says "Antonym Arena" / "Version 1.0.0". NEEDS MARK (item 21 in `play-console-answers.md`): which name the store and the app should use. Do not change `title.txt` until Mark decides.
+The Play name in `title.txt` is **Antonym Arena** (13 characters). That is also the Android launcher label. The package stays `com.markduenas.antonymizer`. Item 21 in `play-console-answers.md` is resolved.
 
 ## Category
 

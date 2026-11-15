@@ -1,4 +1,4 @@
-# Play Console answers — Antonymizer
+# Play Console answers — Antonym Arena
 
 Android package `com.markduenas.antonymizer`. Version **1.0** (`versionName`) / **versionCode 2**, from `version.properties`. This file does not change those values.
 
@@ -28,7 +28,7 @@ Store listing text: `en-US/`. Remove Ads product: `remove-ads-product.md`.
 18. Remove Ads country availability. Leave the EEA, the UK, and Switzerland out until DUE-84 ships. See Countries below.
 19. Whether the Play product description should add that rewarded ads can still play. The in-app card does not say that.
 20. App access vs billing tests. The game needs no login. A normal Play install can buy Remove Ads with a real payment method. License testers can sideload, including a debug build, and use test payment methods. See App access.
-21. Store name. The Play listing here is **Antonymizer** (launcher label, versionName 1.0). The home screen title is **ANTONYM ARENA**, and Settings → About says **Antonym Arena**, version **1.0.0**. Which name should the store and the app use?
+21. RESOLVED. Display name is **Antonym Arena** on the Play listing and on the Android launcher. Package stays `com.markduenas.antonymizer`. versionName stays 1.0, versionCode stays 2.
 
 ## App access
 
@@ -252,17 +252,18 @@ A defensible form answer is: **Yes** for data you count as collected by the deve
 
 ## Store name
 
-NEEDS MARK (item 21). This folder does not change the listing name, the app, or the version.
+Item 21 is decided. Mark chose **Antonym Arena** (2026-11-15).
 
-| Surface | What it says today |
+| Surface | Name |
 | --- | --- |
-| Play app name in `en-US/title.txt` | Antonymizer |
-| Launcher label (`strings.xml` `app_name`) | Antonymizer |
-| `version.properties` | versionName 1.0, versionCode 2 |
+| Play app name in `en-US/title.txt` | Antonym Arena |
+| Android launcher label (`strings.xml` `app_name`, used by `android:label`) | Antonym Arena |
 | Home screen title | ANTONYM ARENA |
 | Settings → About | Antonym Arena, hardcoded "Version 1.0.0" |
+| Package / applicationId | `com.markduenas.antonymizer` (unchanged) |
+| `version.properties` | versionName 1.0, versionCode 2 (unchanged) |
 
-Mark: which name should be on the Play store, and should the in-app title and the About version string be aligned with it later? Until that is decided, paste **Antonymizer** as the store name. It matches the name on the device.
+Paste **Antonym Arena** as the store name. It matches the name under the Android icon. The About version string is still "Version 1.0.0" while `versionName` is 1.0. That version text was not changed.
 
 ## Countries
 

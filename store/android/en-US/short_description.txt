@@ -1,1 +1,1 @@
-Race a bot to the antonym. Five timed rounds, four opponents, local ranks.
+Antonym Arena: race a bot to the antonym. Five timed rounds, four bots.

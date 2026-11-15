@@ -1,12 +1,12 @@
 # Android Play listing assets
 
-There was no `store/` directory and no fastlane metadata in the repo. This folder is the Play Console source for the first Android release. It does not change the app, the version (`1.0` / versionCode `2`), or signing.
+There was no `store/` directory and no fastlane metadata in the repo. This folder is the Play Console source for the first Android release. The Android launcher label is **Antonym Arena**. The package stays `com.markduenas.antonymizer`. Version (`1.0` / versionCode `2`) and signing are unchanged.
 
 | Path | What it is |
 | --- | --- |
-| `en-US/title.txt` | App name, 11 characters (limit 30) |
-| `en-US/short_description.txt` | Short description, 74 characters (limit 80) |
-| `en-US/full_description.txt` | Full description, 1686 characters (limit 4000) |
+| `en-US/title.txt` | App name Antonym Arena, 13 characters (limit 30) |
+| `en-US/short_description.txt` | Short description, 71 characters (limit 80) |
+| `en-US/full_description.txt` | Full description, 1688 characters (limit 4000) |
 | `en-US/listing-fields.md` | Category, tags, and contact fields |
 | `phone/` | Six phone screenshots, 1080×1920, 24-bit PNG |
 | `graphics/icon-512.png` | 512×512 store icon |
@@ -54,4 +54,4 @@ Checked-in Roborazzi baselines under `screenshots/screenshots/` are 1078×2399, 
 
 `graphics/icon-512.png` is the existing launcher artwork. The xxxhdpi launcher PNG is 192×192 of the same image. The 512 was scaled down from the 1024 master (`antonyms_icon.png`, same file as the iOS app icon) so it is not an upscale of the 192. Corners outside the gold ring are transparent.
 
-`graphics/feature-graphic-1024x500.png` places that icon on a purple field taken from the app theme (`#1A1038` to `#462E8C`), with the name and the line "Race a bot to the antonym." It is RGB, with no alpha. The opponent is the scripted bot in `BotBehavior`, not a learned model, so the graphic does not say "AI".
+`graphics/feature-graphic-1024x500.png` places that icon on a purple field taken from the app theme (`#1A1038` to `#462E8C`), with the name **Antonym Arena** and the line "Race a bot to the antonym." It is RGB, with no alpha. The opponent is the scripted bot in `BotBehavior`, not a learned model, so the graphic does not say "AI".
