@@ -30,7 +30,7 @@ import ComposeApp
     public var isInterstitialReady: Bool { interstitialAd != nil }
     public var isRewardedReady: Bool { rewardedAd != nil }
 
-    public private(set) var privacyOptionsRequired: Bool = false
+    public private(set) var isPrivacyOptionsRequired: Bool = false
 
     private weak var rootViewController: UIViewController?
     private var adsReady = false
@@ -85,7 +85,7 @@ import ComposeApp
     }
 
     func setPrivacyOptionsRequired(_ required: Bool) {
-        privacyOptionsRequired = required
+        isPrivacyOptionsRequired = required
         IosConsentBridge.shared.privacyOptionsRequiredChanged(required: required)
     }
 

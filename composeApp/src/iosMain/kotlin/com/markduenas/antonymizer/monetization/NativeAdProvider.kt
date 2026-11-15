@@ -7,7 +7,10 @@ package com.markduenas.antonymizer.monetization
 interface NativeAdProvider {
     val isInterstitialReady: Boolean
     val isRewardedReady: Boolean
-    val privacyOptionsRequired: Boolean
+
+    // `is` prefix so Kotlin/Native exports this Bool as `isPrivacyOptionsRequired`.
+    // A name without `is` is emitted as `privacyOptionsRequired_`.
+    val isPrivacyOptionsRequired: Boolean
 
     fun initialize()
     fun loadInterstitial()

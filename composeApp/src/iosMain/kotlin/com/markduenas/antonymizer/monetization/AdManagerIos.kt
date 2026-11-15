@@ -48,7 +48,7 @@ class AdManagerIos(
         IosConsentBridge.onPrivacyOptionsRequired = { required ->
             _privacyOptionsRequired.value = required
         }
-        _privacyOptionsRequired.value = nativeProvider?.privacyOptionsRequired == true
+        _privacyOptionsRequired.value = nativeProvider?.isPrivacyOptionsRequired == true
         nativeProvider?.initialize()
         updateAdReadyState()
     }
