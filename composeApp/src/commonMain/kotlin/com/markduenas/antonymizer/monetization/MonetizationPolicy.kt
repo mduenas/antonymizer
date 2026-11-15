@@ -23,10 +23,60 @@ object InterstitialPolicy {
 }
 
 /**
- * UMP's canRequestAds is the only gate for requesting an ad.
- * An ATT denial does not suppress the request. The SDK omits the IDFA itself.
+ * Codes for the iOS consent state machine. Swift compares against these exact
+ * values, so the unit tests and the coordinator cannot drift.
  */
-fun shouldRequestAds(canRequestAds: Boolean): Boolean = canRequestAds
+const val CONSENT_IGNORE = 0
+const val CONSENT_BEGIN_UPDATE = 1
+const val CONSENT_REQUEST_TRACKING = 2
+const val CONSENT_START_ADS = 3
+const val CONSENT_RETRY_UPDATE = 4
+const val CONSENT_STOP = 5
+const val CONSENT_START_AND_RELOAD = 6
+
+/**
+ * A repeated onAppear, update, or become-active call.
+ * Once the UMP update has started, every later call is [CONSENT_IGNORE].
+ * This path never requests ATT and never starts ads.
+ */
+fun consentLifecycleCode(
+    presentable: Boolean,
+    kotlinReady: Boolean,
+    consentFlowStarted: Boolean
+): Int {
+    if (!presentable || !kotlinReady || consentFlowStarted) return CONSENT_IGNORE
+    return CONSENT_BEGIN_UPDATE
+}
+
+/**
+ * After the UMP form callback, including when that callback throws.
+ * [formCouldBePresented] false is the window-not-ready retry and does not
+ * finish the flow. Tracking is requested only when ads are allowed and ATT
+ * is still unanswered. Otherwise the SDK starts only if ATT is already resolved.
+ */
+fun postConsentFormCode(
+    formCouldBePresented: Boolean,
+    canRequestAds: Boolean,
+    attNotDetermined: Boolean
+): Int {
+    if (!formCouldBePresented) return CONSENT_RETRY_UPDATE
+    if (!canRequestAds) return CONSENT_STOP
+    if (attNotDetermined) return CONSENT_REQUEST_TRACKING
+    return CONSENT_START_ADS
+}
+
+/**
+ * After the manual ATT prompt returns. A denial still starts ads when UMP
+ * allows them. Reload only if a load began before this decision.
+ */
+fun postTrackingCode(
+    canRequestAds: Boolean,
+    loadsAlreadyBegan: Boolean
+): Int {
+    if (!canRequestAds) return CONSENT_STOP
+    if (loadsAlreadyBegan) return CONSENT_START_AND_RELOAD
+    return CONSENT_START_ADS
+}
 
 /**
  * Applies StoreKit or Play entitlement writes in generation order.

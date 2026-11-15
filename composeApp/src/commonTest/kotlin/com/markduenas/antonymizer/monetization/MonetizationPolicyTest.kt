@@ -87,9 +87,87 @@ class MonetizationPolicyTest {
     }
 
     @Test
-    fun attDenialDoesNotBlockAdRequests() {
-        assertTrue(shouldRequestAds(canRequestAds = true))
-        assertFalse(shouldRequestAds(canRequestAds = false))
+    fun lifecycleWhileConsentIsInFlightDoesNotRequestTracking() {
+        assertEquals(
+            CONSENT_BEGIN_UPDATE,
+            consentLifecycleCode(
+                presentable = true,
+                kotlinReady = true,
+                consentFlowStarted = false
+            )
+        )
+        assertEquals(
+            CONSENT_IGNORE,
+            consentLifecycleCode(
+                presentable = true,
+                kotlinReady = true,
+                consentFlowStarted = true
+            )
+        )
+        assertEquals(
+            CONSENT_IGNORE,
+            consentLifecycleCode(
+                presentable = false,
+                kotlinReady = true,
+                consentFlowStarted = false
+            )
+        )
+    }
+
+    @Test
+    fun declinedConsentDoesNotRequestTrackingOrStartAds() {
+        assertEquals(
+            CONSENT_STOP,
+            postConsentFormCode(
+                formCouldBePresented = true,
+                canRequestAds = false,
+                attNotDetermined = true
+            )
+        )
+    }
+
+    @Test
+    fun unansweredTrackingWaitsUntilAfterTheForm() {
+        assertEquals(
+            CONSENT_REQUEST_TRACKING,
+            postConsentFormCode(
+                formCouldBePresented = true,
+                canRequestAds = true,
+                attNotDetermined = true
+            )
+        )
+        assertEquals(
+            CONSENT_RETRY_UPDATE,
+            postConsentFormCode(
+                formCouldBePresented = false,
+                canRequestAds = true,
+                attNotDetermined = true
+            )
+        )
+    }
+
+    @Test
+    fun deniedTrackingStillStartsAdsAfterConsent() {
+        assertEquals(
+            CONSENT_START_ADS,
+            postConsentFormCode(
+                formCouldBePresented = true,
+                canRequestAds = true,
+                attNotDetermined = false
+            )
+        )
+        assertEquals(
+            CONSENT_START_ADS,
+            postTrackingCode(canRequestAds = true, loadsAlreadyBegan = false)
+        )
+        assertEquals(
+            CONSENT_START_AND_RELOAD,
+            postTrackingCode(canRequestAds = true, loadsAlreadyBegan = true)
+        )
+        assertEquals(
+            CONSENT_STOP,
+            postTrackingCode(canRequestAds = false, loadsAlreadyBegan = true)
+        )
     }
 
     @Test

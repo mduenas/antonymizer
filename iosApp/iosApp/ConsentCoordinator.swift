@@ -1,6 +1,7 @@
 import AppTrackingTransparency
 import UIKit
 import UserMessagingPlatform
+import ComposeApp
 
 /// UMP form first, then ATT if it is still unanswered, then one Mobile Ads start.
 /// Nothing here runs until the root view controller is in a window and the app
@@ -58,22 +59,15 @@ final class IosConsentCoordinator {
 
     @MainActor
     private func startIfReadyOnMain() {
-        guard kotlinReady, isPresentable else { return }
-        if !consentFlowStarted {
-            consentFlowStarted = true
-            beginConsentUpdate()
-            return
-        }
-        // Later active/onAppear calls must not present ATT while the form is up.
-        // They may finish a prompt that was deferred because the app was not active
-        // when the form callback returned.
-        guard consentFlowFinished else { return }
-        let canRequest = ConsentInformation.shared.canRequestAds
-        if ATTrackingManager.trackingAuthorizationStatus == .notDetermined {
-            requestAttFallbackIfNeeded()
-        } else if canRequest {
-            IosAdHelper.shared.startSdk()
-        }
+        let action = MonetizationPolicyKt.consentLifecycleCode(
+            presentable: isPresentable,
+            kotlinReady: kotlinReady,
+            consentFlowStarted: consentFlowStarted
+        )
+        // Already-started and not-ready calls are IGNORE. This path never requests ATT.
+        guard action == MonetizationPolicyKt.CONSENT_BEGIN_UPDATE else { return }
+        consentFlowStarted = true
+        beginConsentUpdate()
     }
 
     @MainActor
@@ -104,12 +98,17 @@ final class IosConsentCoordinator {
     @MainActor
     private func handleConsentInfo(canRequest: Bool) async {
         publishPrivacyOptions()
-        // canRequest is the post-update value, including the error path.
-        // Do not start ads from it. The form, then ATT, come first.
+        // canRequest is the value after the info update, including its error path.
+        // Ads do not start from it. The form callback decides.
         _ = canRequest
         guard let viewController = rootViewController, isPresentable else {
-            // Window wasn't ready. Do not mark the flow finished.
-            consentFlowStarted = false
+            applyPostForm(
+                MonetizationPolicyKt.postConsentFormCode(
+                    formCouldBePresented: false,
+                    canRequestAds: false,
+                    attNotDetermined: false
+                )
+            )
             return
         }
         do {
@@ -119,14 +118,26 @@ final class IosConsentCoordinator {
             print("Consent form failed: \(error.localizedDescription)")
         }
         publishPrivacyOptions()
-        consentFlowFinished = true
-        let canRequestNow = ConsentInformation.shared.canRequestAds
-        if !canRequestNow {
+        applyPostForm(
+            MonetizationPolicyKt.postConsentFormCode(
+                formCouldBePresented: true,
+                canRequestAds: ConsentInformation.shared.canRequestAds,
+                attNotDetermined: ATTrackingManager.trackingAuthorizationStatus == .notDetermined
+            )
+        )
+    }
+
+    @MainActor
+    private func applyPostForm(_ action: Int32) {
+        if action == MonetizationPolicyKt.CONSENT_RETRY_UPDATE {
+            // Window wasn't ready. Do not mark the flow finished.
+            consentFlowStarted = false
             return
         }
-        if ATTrackingManager.trackingAuthorizationStatus == .notDetermined {
+        consentFlowFinished = true
+        if action == MonetizationPolicyKt.CONSENT_REQUEST_TRACKING {
             requestAttFallbackIfNeeded()
-        } else {
+        } else if action == MonetizationPolicyKt.CONSENT_START_ADS {
             IosAdHelper.shared.startSdk()
         }
     }
@@ -145,10 +156,15 @@ final class IosConsentCoordinator {
         let loadsAlreadyBegan = IosAdHelper.shared.loadsHaveBegun
         ATTrackingManager.requestTrackingAuthorization { _ in
             Task { @MainActor in
-                // Denial still requests ads. The SDK drops the IDFA on its own.
-                guard ConsentInformation.shared.canRequestAds else { return }
-                IosAdHelper.shared.startSdk()
-                if loadsAlreadyBegan {
+                let action = MonetizationPolicyKt.postTrackingCode(
+                    canRequestAds: ConsentInformation.shared.canRequestAds,
+                    loadsAlreadyBegan: loadsAlreadyBegan
+                )
+                if action == MonetizationPolicyKt.CONSENT_START_ADS
+                    || action == MonetizationPolicyKt.CONSENT_START_AND_RELOAD {
+                    IosAdHelper.shared.startSdk()
+                }
+                if action == MonetizationPolicyKt.CONSENT_START_AND_RELOAD {
                     IosAdHelper.shared.reloadAdsAfterTrackingDecision()
                 }
             }
