@@ -5,10 +5,10 @@ Paste-ready text is in the sibling `.txt` files. Limits were counted on the text
 | Field | File | Length | Limit |
 | --- | --- | --- | --- |
 | App name | `title.txt` | 11 | 30 |
-| Short description | `short_description.txt` | 78 | 80 |
-| Full description | `full_description.txt` | 1681 | 4000 |
+| Short description | `short_description.txt` | 74 | 80 |
+| Full description | `full_description.txt` | 1686 | 4000 |
 
-The installed app label (`strings.xml` `app_name`) is **Antonymizer**. The home screen title is "ANTONYM ARENA". The store name matches the launcher label.
+The Play name in `title.txt` stays **Antonymizer**, which is the launcher label. The home screen says "ANTONYM ARENA" and Settings → About says "Antonym Arena" / "Version 1.0.0". NEEDS MARK (item 21 in `play-console-answers.md`): which name the store and the app should use. Do not change `title.txt` until Mark decides.
 
 ## Category
 

@@ -11,7 +11,7 @@ Create this in Play Console before the first build that should show a live price
 | Name / title | Remove Ads |
 | Description | One-time purchase. Removes interstitial ads between matches. |
 | Price | NEEDS MARK. Suggested default **USD 2.99**. |
-| Countries | NEEDS MARK |
+| Countries | NEEDS MARK. Leave the EEA, the UK, and Switzerland out until DUE-84 (UMP consent) ships. See Countries in `play-console-answers.md`. |
 
 The description above is the sentence already shown on the Settings card (`SettingsScreen.kt`). It is 64 characters. Play's one-time product description limit is 200.
 

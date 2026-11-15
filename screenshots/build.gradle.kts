@@ -30,6 +30,14 @@ android {
             isIncludeAndroidResources = true
             all {
                 it.systemProperty("robolectric.graphicsMode", "NATIVE")
+                // Play listing captures stay off the default test run. Enable with
+                // ./gradlew :screenshots:recordRoborazziDebug -PplayStoreScreenshots=true --tests com.markduenas.antonymizer.screenshots.PlayStoreScreenshotTest
+                val recordPlayStore =
+                    project.findProperty("playStoreScreenshots")?.toString() == "true"
+                it.systemProperty(
+                    "play.store.screenshots",
+                    if (recordPlayStore) "true" else "false"
+                )
             }
         }
     }

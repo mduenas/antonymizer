@@ -25,9 +25,10 @@ Store listing text: `en-US/`. Remove Ads product: `remove-ads-product.md`.
 15. The single yes/no for "users can request data deletion". In-app Clear All Data is only partial, and ad/purchase data is deleted through Android or the Google account, not through a developer account.
 16. `android:allowBackup="true"`. Auto Backup may copy the local DataStore file to the user's Google Drive. Developers cannot read that backup. Usual answer is that this is not "collection". Confirm before submit.
 17. Remove Ads price. Suggested USD 2.99, which is the string the app shows when Play returns no price.
-18. Remove Ads country availability.
+18. Remove Ads country availability. Leave the EEA, the UK, and Switzerland out until DUE-84 ships. See Countries below.
 19. Whether the Play product description should add that rewarded ads can still play. The in-app card does not say that.
 20. Internal-testing note for review: the game itself needs no login. Buying Remove Ads needs a licensed tester on a Play-installed build.
+21. Store name. The Play listing here is **Antonymizer** (launcher label, versionName 1.0). The home screen title is **ANTONYM ARENA**, and Settings → About says **Antonym Arena**, version **1.0.0**. Which name should the store and the app use?
 
 ## App access
 
@@ -48,7 +49,7 @@ Formats implemented in `AdManagerAndroid`:
 
 No banner, native, or app-open ad is implemented. Debug builds use Google's sample test ad units. Release builds use the production units in `AdManagerAndroid`.
 
-The app manifest sets the AdMob app id meta-data `com.google.android.gms.ads.APPLICATION_ID`. It does not show a consent form. `user-messaging-platform` 3.1.0 is pulled in by the ads SDK, and the app never calls it.
+The app manifest sets the AdMob app id meta-data `com.google.android.gms.ads.APPLICATION_ID`. It does not show a consent form. `user-messaging-platform` 3.1.0 is pulled in by the ads SDK, and the app never calls it. See Countries for what that means for the EEA, the UK, and Switzerland (DUE-84).
 
 ## Advertising ID
 
@@ -245,6 +246,32 @@ NEEDS MARK (item 15) for the yes/no Play asks. Facts to use:
 - Purchase history: it lives on the Google account. The developer has no server record to erase. Uninstalling the app does not refund or delete the Play purchase. Reinstalling and Restore Purchases reads it again.
 
 A defensible form answer is: **Yes** for data you count as collected by the developer only where an in-app or platform control exists, and name the mechanism honestly (in-app clear for local gameplay data; Android ad-id settings; Google account for purchases). If the form's "Yes" requires that every declared type be deletable by a request to you, answer **No** and keep the notes above, because you have no deletion endpoint for AdMob or Play purchase records.
+
+## Store name
+
+NEEDS MARK (item 21). This folder does not change the listing name, the app, or the version.
+
+| Surface | What it says today |
+| --- | --- |
+| Play app name in `en-US/title.txt` | Antonymizer |
+| Launcher label (`strings.xml` `app_name`) | Antonymizer |
+| `version.properties` | versionName 1.0, versionCode 2 |
+| Home screen title | ANTONYM ARENA |
+| Settings → About | Antonym Arena, hardcoded "Version 1.0.0" |
+
+Mark: which name should be on the Play store, and should the in-app title and the About version string be aligned with it later? Until that is decided, paste **Antonymizer** as the store name. It matches the name on the device.
+
+## Countries
+
+NEEDS MARK (item 18) for every country that is not in the exclusion below.
+
+Android has no UMP consent flow yet (**DUE-84**). The ads SDK is initialized with no consent form. `user-messaging-platform` is only a transitive dependency of `play-services-ads-api`, and the app never calls it. Ad data collection is therefore not optional for the user. See Data safety.
+
+Leave these out of the production rollout, and off the `remove_ads` country list, until DUE-84 ships:
+
+- European Economic Area
+- United Kingdom
+- Switzerland
 
 ## Privacy policy
 

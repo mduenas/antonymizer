@@ -1,4 +1,4 @@
-Antonymizer is a timed antonym game. A word appears, and you and an AI opponent race to tap the opposite word.
+Antonymizer is a timed antonym game. A word appears, and you and a computer opponent race to tap the opposite word.
 
 A match is five rounds. Each round is ten questions, with five seconds on the clock. The player who wins more rounds wins the match. A round or a match can tie.
 
