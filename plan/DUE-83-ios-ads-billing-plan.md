@@ -6,6 +6,8 @@ Linear: [DUE-83](https://linear.app/duenas-tracking/issue/DUE-83/antonymizer-imp
 
 iOS marketing version is **1.0**, build **1** (`iosApp/Configuration/Config.xcconfig`: `MARKETING_VERSION=1.0`, `CURRENT_PROJECT_VERSION=1`). Leave both numbers alone. Android `version.properties` is `versionName=1.0` / `versionCode=2`. Those are independent. Do not "sync" them in the implementation PR.
 
+**Display name.** Mark chose **Antonym Arena** for the iOS home screen. The target generates its Info.plist (`GENERATE_INFOPLIST_FILE = YES`) and already sets the name with `INFOPLIST_KEY_CFBundleDisplayName` on the Debug and Release configs. Change that value to `Antonym Arena`. Do not add a second `CFBundleDisplayName` in `Info.plist`. Leave `PRODUCT_NAME` (`Antonymizer`), the target name, the bundle id, and both version numbers unchanged. `NSUserTrackingUsageDescription` and the StoreKit product text ("Remove Ads") do not name the app, so leave them. The in-app About card already says Antonym Arena.
+
 ## What the issue gets wrong
 
 DUE-83 says both iOS managers are stubs. Billing is a stub. Ads are not.
@@ -457,7 +459,7 @@ Touch `CLAUDE.md` / `AGENTS.md` only to delete the "iOS billing is a stub" sente
 1. Are these AdMob iOS ids live and serving? App `ca-app-pub-7540731406850248~1440731565`, interstitial `ca-app-pub-7540731406850248/7667964658`, rewarded `ca-app-pub-7540731406850248/6932731399`. They are already in the repo. If any id is a placeholder, send the real one before Release/TestFlight.
 2. Create and publish, on that iOS app, an AdMob GDPR message and an IDFA explainer (Privacy & messaging). The code presents whatever UMP returns. EU consent does not exist until the GDPR message is published.
 3. App Store Connect non-consumable product id. Plan uses `remove_ads` at $2.99, same id as Play. Confirm there is no existing product under another id.
-4. Bundle id. The Xcode build resolves to `com.markduenas.antonymizer.Antonymizer` because `TEAM_ID` in `iosApp/Configuration/Config.xcconfig` is empty. Team in the project is `A8AAE5A4T6`. Confirm this is the App Store Connect bundle id, or send the one to register.
+4. Bundle id. The Xcode build resolves to `com.markduenas.antonymizer.Antonymizer` because `TEAM_ID` in `iosApp/Configuration/Config.xcconfig` is empty. Team in the project is `A8AAE5A4T6`. Confirm this is the App Store Connect bundle id, or send the one to register. The home screen name is Antonym Arena and is separate from this id.
 5. After a debug run, the UMP / Google test-device hash printed in the console, if he wants the EEA form and TestFlight test-mode on a physical device. Do not block the code PR on this.
 6. Privacy policy URL for App Store Connect and the About-card link. Submission is blocked without it. No URL will be invented in code.
 7. Confirm rewarded ads (hints, continue, bonus) stay after remove-ads. That is what Android and the Settings sentence already do. Say so if remove-ads should also remove rewarded ads. Default is to keep them.
