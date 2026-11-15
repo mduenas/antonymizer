@@ -12,7 +12,7 @@ Store listing text: `en-US/`. Remove Ads product: `remove-ads-product.md`.
 2. Store listing phone (optional).
 3. Website URL. Suggestion only: `https://www.markduenas.com/projects/antonymizer/`
 4. Privacy policy URL. Suggestion only: `https://www.markduenas.com/projects/antonymizer/privacy-policy/`. No policy URL exists in the repo or the app. Play requires one because the app has ads.
-5. Whether a later change should add an in-app link to that policy. This task does not change app code. The Settings screen has no link today.
+5. In-app privacy policy. Required before submission, not optional. Play's User Data policy requires the policy inside the app as well as the Play Console URL. Settings has no link today. Adding it is an app change and is outside this PR.
 6. Category still named **Word**, and the five suggested tags, against the live Console lists (`en-US/listing-fields.md`).
 7. Target age groups, and whether the listing "appeals to children".
 8. IARC contact email.
@@ -27,7 +27,7 @@ Store listing text: `en-US/`. Remove Ads product: `remove-ads-product.md`.
 17. Remove Ads price. Suggested USD 2.99, which is the string the app shows when Play returns no price.
 18. Remove Ads country availability. Leave the EEA, the UK, and Switzerland out until DUE-84 ships. See Countries below.
 19. Whether the Play product description should add that rewarded ads can still play. The in-app card does not say that.
-20. Internal-testing note for review: the game itself needs no login. Buying Remove Ads needs a licensed tester on a Play-installed build.
+20. App access vs billing tests. The game needs no login. A normal Play install can buy Remove Ads with a real payment method. License testers can sideload, including a debug build, and use test payment methods. See App access.
 21. Store name. The Play listing here is **Antonymizer** (launcher label, versionName 1.0). The home screen title is **ANTONYM ARENA**, and Settings → About says **Antonym Arena**, version **1.0.0**. Which name should the store and the app use?
 
 ## App access
@@ -36,7 +36,10 @@ Store listing text: `en-US/`. Remove Ads product: `remove-ads-product.md`.
 
 There is no login, account, password, or server. A reviewer can open the app and play. The display name defaults to "Player" and can be edited in Settings (stored only on the device, 20 characters max).
 
-NEEDS MARK (item 20): the Remove Ads purchase can be completed only by a licensed tester on a build installed from Play. The game is not locked behind that.
+NEEDS MARK (item 20) is only about how you test the purchase, not about who may buy it.
+
+- Anyone who installs from Play can buy Remove Ads with a normal payment method once the product is active. That purchase is charged.
+- A license tester (the Google account is on the Play Console license-test list, and the package name matches) can sideload the app, including a debug-signed build, and use Play's test payment methods. Those are not real charges. The billing library is otherwise blocked for apps that are not signed and uploaded to Play. Source: [Test Google Play Billing](https://developer.android.com/google/play/billing/test).
 
 ## Ads
 
@@ -201,7 +204,7 @@ It does not call `setObfuscatedAccountId` or `setObfuscatedProfileId`. It does n
 | Shared | Yes, with Google Play only. Not with any other third party. |
 | Purposes | App functionality (turn on the Remove Ads entitlement). Fraud prevention, security, and compliance (acknowledgement and Play's purchase check). |
 | Ephemeral | No. `ads_removed` is kept on device, and Play keeps the purchase on the Google account. |
-| Optional | No. The user can choose not to buy, but a completed purchase is processed this way. There is no separate "don't record this purchase" control. |
+| Optional | Yes. Play's definition of optional data is data the user can decline and still use the app. Gameplay does not require buying Remove Ads. If they do buy, the purchase is processed and there is no separate "don't record this purchase" switch. That does not make purchase history required for every player. |
 
 NEEDS MARK (item 13): Play's Data safety help says you do not have to declare data that Google Play Billing processes when you do not collect it yourself. This app does receive the purchase token on the device and sends it back to acknowledge. The conservative answer is to declare purchase history as above. If you rely on the exemption instead, say so explicitly in the form and do not also declare it.
 
@@ -286,7 +289,7 @@ NEEDS MARK (items 4 and 5):
 - Suggested URL, only if you host the page there: `https://www.markduenas.com/projects/antonymizer/privacy-policy/`
 - Suggested website, same condition: `https://www.markduenas.com/projects/antonymizer/`
 - Do not enter either URL in Play until the page is actually live.
-- The binary does not link to a policy. Play's ads policy is easier to satisfy when the app does. That would be an app change, and it is out of scope here.
+- **Required before submission:** the [User Data policy](https://support.google.com/googleplay/android-developer/answer/10144311) requires a privacy-policy link or the policy text inside the app, in addition to the Play Console URL. Hosting the page alone does not comply. Settings has no link today. Adding one is an app change and is outside this PR. Do not submit until that link exists.
 
 When the page is written, it needs to cover at least:
 

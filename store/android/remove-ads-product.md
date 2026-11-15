@@ -49,4 +49,10 @@ NEEDS MARK: the in-app card does not mention rewarded ads. If the Play product d
 
 ## Status
 
-The product has to be Active, and the app has to be installed from Play (internal testing is enough), before a purchase can complete. A sideloaded build can show the fallback price and then fail to open the purchase sheet.
+The product has to be Active before a purchase can complete.
+
+Who can buy, from the [billing test guide](https://developer.android.com/google/play/billing/test):
+
+- A normal Play user who installs from Play (a test track or production) can complete a real purchase and is charged.
+- A license tester can sideload a build, including a debug-signed one, without uploading that build. The package name must be `com.markduenas.antonymizer`, and the Google account on the device must be on this app's license-test list. Those purchases use Play's test payment methods and are not charged.
+- An account that is not a license tester cannot complete billing on a build that was not signed and uploaded to Play. That case can still show the `$2.99` fallback and then fail to open the purchase sheet.
