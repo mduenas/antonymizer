@@ -170,17 +170,18 @@ class AdManagerAndroid(
         scope.launch(Dispatchers.Main) {
             val ad = interstitialAd
             val activity = activityRef?.get()
+            val removed = adsRemoved.first()
             val lastShown = settingsStorage.lastInterstitialTime.first()
             if (
                 ad == null || activity == null || !InterstitialPolicy.shouldShow(
-                    adsRemoved = adsRemoved.first(),
+                    adsRemoved = removed,
                     lastShownAtMillis = lastShown,
                     nowMillis = System.currentTimeMillis(),
                     adLoaded = true
                 )
             ) {
                 Log.d(TAG, "Interstitial not eligible")
-                if (ad == null) loadInterstitial()
+                if (ad == null && !removed) loadInterstitial()
                 onComplete()
                 return@launch
             }

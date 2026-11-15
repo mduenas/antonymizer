@@ -82,6 +82,7 @@ import ComposeApp
         // Drop any in-flight launch snapshot before the sheet returns.
         _ = await generations.next()
         guard let product else {
+            _ = await refreshEntitlements(adjust: nil)
             report(state: "unavailable", message: "Remove Ads is not available right now")
             return
         }
@@ -94,6 +95,7 @@ import ComposeApp
                 do {
                     transaction = try checkVerified(verification)
                 } catch {
+                    _ = await refreshEntitlements(adjust: nil)
                     report(state: "error", message: "Purchase could not be verified")
                     return
                 }
@@ -101,10 +103,15 @@ import ComposeApp
                 let applied = await refreshEntitlements(adjust: { owns in
                     owns || (transaction.revocationDate == nil && transaction.productID == self.productId)
                 })
-                if case .applied(true) = applied {
+                switch applied {
+                case .applied(true):
                     report(state: "success", message: nil)
-                } else if case .applied(false) = applied {
+                case .applied(false):
                     report(state: "error", message: "Purchase could not be verified")
+                case .superseded:
+                    // Don't stay on Purchasing if the updates listener won the race
+                    // and did not itself report a state.
+                    await reportVerifiedPurchase(transaction)
                 }
             case .userCancelled:
                 // The purchase bumped the generation, which drops an in-flight launch
@@ -117,11 +124,27 @@ import ComposeApp
                 _ = await refreshEntitlements(adjust: nil)
                 report(state: "pending", message: "Waiting for approval")
             @unknown default:
+                _ = await refreshEntitlements(adjust: nil)
                 report(state: "error", message: "Purchase failed")
             }
         } catch {
+            _ = await refreshEntitlements(adjust: nil)
             report(state: "error", message: error.localizedDescription)
         }
+    }
+
+    /// The entitlement walk was superseded. Record this verified transaction under
+    /// a new generation, and always leave Purchasing.
+    @MainActor
+    private func reportVerifiedPurchase(_ transaction: Transaction) async {
+        let generation = await generations.next()
+        guard await generations.current() == generation else {
+            report(state: "ready", message: nil)
+            return
+        }
+        let owned = transaction.revocationDate == nil && transaction.productID == productId
+        IosBillingBridge.shared.entitlementUpdated(adsRemoved: owned, generation: generation)
+        report(state: owned ? "success" : "ready", message: nil)
     }
 
     @MainActor
@@ -135,19 +158,18 @@ import ComposeApp
             // Still read currentEntitlements before surfacing the error.
             syncError = error.localizedDescription
         }
-        let applied = await refreshEntitlements(adjust: nil)
-        let owns: Bool
-        if case .applied(let value) = applied {
-            owns = value
-        } else {
-            owns = false
-        }
-        if owns {
+        switch await refreshEntitlements(adjust: nil) {
+        case .applied(true):
             report(state: "success", message: nil)
-        } else if let syncError {
-            report(state: "error", message: syncError)
-        } else {
-            report(state: "error", message: "No previous purchase found")
+        case .applied(false):
+            if let syncError {
+                report(state: "error", message: syncError)
+            } else {
+                report(state: "error", message: "No previous purchase found")
+            }
+        case .superseded:
+            // A newer walk owns the result. Don't claim the purchase is missing.
+            report(state: "ready", message: nil)
         }
     }
 
@@ -166,6 +188,10 @@ import ComposeApp
         let generation = await generations.next()
         guard await generations.current() == generation else {
             await transaction.finish()
+            // The generation check lost a race. Re-read so a revocation is not dropped.
+            if case .applied(let owns) = await refreshEntitlements(adjust: nil) {
+                report(state: owns ? "success" : "ready", message: nil)
+            }
             return
         }
         let owned = transaction.revocationDate == nil

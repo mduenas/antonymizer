@@ -54,8 +54,12 @@ import ComposeApp
         IosConsentCoordinator.shared.noteKotlinReady()
     }
 
-    /// Called when UMP's canRequestAds is true. ATT is not a gate: a denial still
-    /// loads with GADRequest, and the SDK omits the IDFA. See shouldRequestAds.
+    /// True once Mobile Ads start has been requested, including before the
+    /// start callback loads the first ads.
+    var loadsHaveBegun: Bool { sdkStartRequested }
+
+    /// Called only after UMP allows ads and ATT is no longer .notDetermined.
+    /// A denial still loads with GADRequest. The SDK omits the IDFA.
     func startSdk() {
         guard !sdkStartRequested else { return }
         sdkStartRequested = true

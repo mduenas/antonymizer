@@ -2,9 +2,9 @@ import AppTrackingTransparency
 import UIKit
 import UserMessagingPlatform
 
-/// UMP consent, then the Google Mobile Ads SDK.
-/// The form and the ATT fallback run only once the root view controller is in a
-/// window and the application is active. They are not started from setup.
+/// UMP form first, then ATT if it is still unanswered, then one Mobile Ads start.
+/// Nothing here runs until the root view controller is in a window and the app
+/// is active.
 final class IosConsentCoordinator {
 
     static let shared = IosConsentCoordinator()
@@ -18,6 +18,8 @@ final class IosConsentCoordinator {
     private weak var rootViewController: UIViewController?
     private var kotlinReady = false
     private var consentFlowStarted = false
+    /// Set only after the form callback returns. The window-not-ready retry does not set it.
+    private var consentFlowFinished = false
     private var attFallbackRequested = false
 
     private init() {}
@@ -60,8 +62,17 @@ final class IosConsentCoordinator {
         if !consentFlowStarted {
             consentFlowStarted = true
             beginConsentUpdate()
-        } else {
+            return
+        }
+        // Later active/onAppear calls must not present ATT while the form is up.
+        // They may finish a prompt that was deferred because the app was not active
+        // when the form callback returned.
+        guard consentFlowFinished else { return }
+        let canRequest = ConsentInformation.shared.canRequestAds
+        if ATTrackingManager.trackingAuthorizationStatus == .notDetermined {
             requestAttFallbackIfNeeded()
+        } else if canRequest {
+            IosAdHelper.shared.startSdk()
         }
     }
 
@@ -83,6 +94,7 @@ final class IosConsentCoordinator {
         ConsentInformation.shared.requestConsentInfoUpdate(with: parameters) { [weak self] _ in
             // Read canRequestAds even when this callback has an error. A stored
             // decision from a previous session can still allow ads while offline.
+            // The SDK still waits until the form returns and ATT is resolved.
             Task { @MainActor in
                 await self?.handleConsentInfo(canRequest: ConsentInformation.shared.canRequestAds)
             }
@@ -92,40 +104,53 @@ final class IosConsentCoordinator {
     @MainActor
     private func handleConsentInfo(canRequest: Bool) async {
         publishPrivacyOptions()
-        // Do not wait for the form when a previous decision already allows ads.
-        if canRequest {
-            IosAdHelper.shared.startSdk()
-        }
-        if let viewController = rootViewController, isPresentable {
-            do {
-                try await ConsentForm.loadAndPresentIfRequired(from: viewController)
-            } catch {
-                // Form load failed. Fall through and read canRequestAds anyway.
-                print("Consent form failed: \(error.localizedDescription)")
-            }
-        } else {
-            // The window was not ready. Let the next active callback try again.
+        // canRequest is the post-update value, including the error path.
+        // Do not start ads from it. The form, then ATT, come first.
+        _ = canRequest
+        guard let viewController = rootViewController, isPresentable else {
+            // Window wasn't ready. Do not mark the flow finished.
             consentFlowStarted = false
+            return
+        }
+        do {
+            try await ConsentForm.loadAndPresentIfRequired(from: viewController)
+        } catch {
+            // Form load failed. Fall through and read canRequestAds anyway.
+            print("Consent form failed: \(error.localizedDescription)")
         }
         publishPrivacyOptions()
-        if ConsentInformation.shared.canRequestAds {
+        consentFlowFinished = true
+        let canRequestNow = ConsentInformation.shared.canRequestAds
+        if !canRequestNow {
+            return
+        }
+        if ATTrackingManager.trackingAuthorizationStatus == .notDetermined {
+            requestAttFallbackIfNeeded()
+        } else {
             IosAdHelper.shared.startSdk()
         }
-        requestAttFallbackIfNeeded()
     }
 
+    /// Manual ATT only after UMP has finished and only when ads are allowed.
+    /// If UMP already presented the system prompt, the status is no longer
+    /// .notDetermined and this returns without a second prompt.
     @MainActor
     private func requestAttFallbackIfNeeded() {
+        guard consentFlowFinished else { return }
+        guard ConsentInformation.shared.canRequestAds else { return }
         guard !attFallbackRequested else { return }
         guard ATTrackingManager.trackingAuthorizationStatus == .notDetermined else { return }
         guard isPresentable else { return }
         attFallbackRequested = true
+        let loadsAlreadyBegan = IosAdHelper.shared.loadsHaveBegun
         ATTrackingManager.requestTrackingAuthorization { _ in
             Task { @MainActor in
                 // Denial still requests ads. The SDK drops the IDFA on its own.
                 guard ConsentInformation.shared.canRequestAds else { return }
                 IosAdHelper.shared.startSdk()
-                IosAdHelper.shared.reloadAdsAfterTrackingDecision()
+                if loadsAlreadyBegan {
+                    IosAdHelper.shared.reloadAdsAfterTrackingDecision()
+                }
             }
         }
     }
