@@ -33,19 +33,39 @@ const val CONSENT_START_ADS = 3
 const val CONSENT_RETRY_UPDATE = 4
 const val CONSENT_STOP = 5
 const val CONSENT_START_AND_RELOAD = 6
+const val CONSENT_RETRY_TRACKING = 7
+const val CONSENT_PRESENT_FORM = 8
 
 /**
  * A repeated onAppear, update, or become-active call.
- * Once the UMP update has started, every later call is [CONSENT_IGNORE].
- * This path never requests ATT and never starts ads.
+ * While the UMP form is still in flight the result is [CONSENT_IGNORE], so ATT
+ * cannot start early. After the form finishes, a later activation may retry
+ * ATT only when ads are allowed and the prompt has not been shown yet.
  */
 fun consentLifecycleCode(
     presentable: Boolean,
     kotlinReady: Boolean,
-    consentFlowStarted: Boolean
+    consentFlowStarted: Boolean,
+    consentFlowFinished: Boolean = false,
+    canRequestAds: Boolean = false,
+    attNotDetermined: Boolean = false,
+    attAlreadyRequested: Boolean = false
 ): Int {
-    if (!presentable || !kotlinReady || consentFlowStarted) return CONSENT_IGNORE
-    return CONSENT_BEGIN_UPDATE
+    if (!presentable || !kotlinReady) return CONSENT_IGNORE
+    if (!consentFlowStarted) return CONSENT_BEGIN_UPDATE
+    if (!consentFlowFinished) return CONSENT_IGNORE
+    if (canRequestAds && attNotDetermined && !attAlreadyRequested) return CONSENT_RETRY_TRACKING
+    return CONSENT_IGNORE
+}
+
+/**
+ * After requestConsentInfoUpdate returns, including when it passes an error.
+ * A failed update with no stored consent is retried on the next activation.
+ * A stored decision still continues to the form.
+ */
+fun postConsentInfoCode(updateFailed: Boolean, canRequestAds: Boolean): Int {
+    if (updateFailed && !canRequestAds) return CONSENT_RETRY_UPDATE
+    return CONSENT_PRESENT_FORM
 }
 
 /**
@@ -75,6 +95,21 @@ fun postTrackingCode(
 ): Int {
     if (!canRequestAds) return CONSENT_STOP
     if (loadsAlreadyBegan) return CONSENT_START_AND_RELOAD
+    return CONSENT_START_ADS
+}
+
+/**
+ * After the privacy-options form. A new grant starts ads, still waiting for
+ * ATT when it is unanswered. A denial does not start the SDK.
+ */
+fun afterPrivacyOptionsCode(
+    canRequestAds: Boolean,
+    attNotDetermined: Boolean,
+    sdkAlreadyStarted: Boolean
+): Int {
+    if (!canRequestAds) return CONSENT_STOP
+    if (attNotDetermined) return CONSENT_REQUEST_TRACKING
+    if (sdkAlreadyStarted) return CONSENT_START_AND_RELOAD
     return CONSENT_START_ADS
 }
 

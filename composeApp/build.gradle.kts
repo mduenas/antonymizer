@@ -125,3 +125,23 @@ dependencies {
     debugImplementation(libs.compose.uiTooling)
 }
 
+gradle.taskGraph.whenReady {
+    if (keystorePropertiesFile.exists()) return@whenReady
+    val injectedStore = findProperty("android.injected.signing.store.file")?.toString()
+    if (!injectedStore.isNullOrBlank()) return@whenReady
+    val releasePackaging = allTasks.filter { task ->
+        val name = task.name
+        name.contains("Release") && (
+            name.startsWith("assemble") ||
+                name.startsWith("bundle") ||
+                name.startsWith("package")
+            )
+    }
+    if (releasePackaging.isNotEmpty()) {
+        throw GradleException(
+            "Release build requires keystore.properties or -Pandroid.injected.signing.store.file. " +
+                "Refusing to assemble an unsigned release artifact."
+        )
+    }
+}
+

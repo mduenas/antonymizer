@@ -54,6 +54,12 @@ final class IosConsentCoordinator {
                 print("Privacy options form failed: \(error.localizedDescription)")
             }
             self.publishPrivacyOptions()
+            let action = MonetizationPolicyKt.afterPrivacyOptionsCode(
+                canRequestAds: ConsentInformation.shared.canRequestAds,
+                attNotDetermined: ATTrackingManager.trackingAuthorizationStatus == .notDetermined,
+                sdkAlreadyStarted: IosAdHelper.shared.loadsHaveBegun
+            )
+            self.applyAfterGrant(action)
         }
     }
 
@@ -62,12 +68,19 @@ final class IosConsentCoordinator {
         let action = MonetizationPolicyKt.consentLifecycleCode(
             presentable: isPresentable,
             kotlinReady: kotlinReady,
-            consentFlowStarted: consentFlowStarted
+            consentFlowStarted: consentFlowStarted,
+            consentFlowFinished: consentFlowFinished,
+            canRequestAds: ConsentInformation.shared.canRequestAds,
+            attNotDetermined: ATTrackingManager.trackingAuthorizationStatus == .notDetermined,
+            attAlreadyRequested: attFallbackRequested
         )
-        // Already-started and not-ready calls are IGNORE. This path never requests ATT.
-        guard action == MonetizationPolicyKt.CONSENT_BEGIN_UPDATE else { return }
-        consentFlowStarted = true
-        beginConsentUpdate()
+        if action == MonetizationPolicyKt.CONSENT_BEGIN_UPDATE {
+            consentFlowStarted = true
+            beginConsentUpdate()
+        } else if action == MonetizationPolicyKt.CONSENT_RETRY_TRACKING {
+            // The form already finished. A later activation can show ATT.
+            requestAttFallbackIfNeeded()
+        }
     }
 
     @MainActor
@@ -85,22 +98,29 @@ final class IosConsentCoordinator {
             parameters.debugSettings = debugSettings
         }
         #endif
-        ConsentInformation.shared.requestConsentInfoUpdate(with: parameters) { [weak self] _ in
+        ConsentInformation.shared.requestConsentInfoUpdate(with: parameters) { [weak self] error in
             // Read canRequestAds even when this callback has an error. A stored
             // decision from a previous session can still allow ads while offline.
-            // The SDK still waits until the form returns and ATT is resolved.
+            // A failed update with no stored consent is retried on the next activation.
+            let canRequest = ConsentInformation.shared.canRequestAds
+            let updateFailed = error != nil
             Task { @MainActor in
-                await self?.handleConsentInfo(canRequest: ConsentInformation.shared.canRequestAds)
+                await self?.handleConsentInfo(updateFailed: updateFailed, canRequest: canRequest)
             }
         }
     }
 
     @MainActor
-    private func handleConsentInfo(canRequest: Bool) async {
+    private func handleConsentInfo(updateFailed: Bool, canRequest: Bool) async {
         publishPrivacyOptions()
-        // canRequest is the value after the info update, including its error path.
-        // Ads do not start from it. The form callback decides.
-        _ = canRequest
+        let infoAction = MonetizationPolicyKt.postConsentInfoCode(
+            updateFailed: updateFailed,
+            canRequestAds: canRequest
+        )
+        if infoAction == MonetizationPolicyKt.CONSENT_RETRY_UPDATE {
+            consentFlowStarted = false
+            return
+        }
         guard let viewController = rootViewController, isPresentable else {
             applyPostForm(
                 MonetizationPolicyKt.postConsentFormCode(
@@ -139,6 +159,24 @@ final class IosConsentCoordinator {
             requestAttFallbackIfNeeded()
         } else if action == MonetizationPolicyKt.CONSENT_START_ADS {
             IosAdHelper.shared.startSdk()
+        }
+    }
+
+    /// A grant from the privacy-options form uses the same UMP-then-ATT order.
+    @MainActor
+    private func applyAfterGrant(_ action: Int32) {
+        if action == MonetizationPolicyKt.CONSENT_STOP {
+            return
+        }
+        consentFlowFinished = true
+        if action == MonetizationPolicyKt.CONSENT_REQUEST_TRACKING {
+            requestAttFallbackIfNeeded()
+        } else if action == MonetizationPolicyKt.CONSENT_START_ADS
+            || action == MonetizationPolicyKt.CONSENT_START_AND_RELOAD {
+            IosAdHelper.shared.startSdk()
+            if action == MonetizationPolicyKt.CONSENT_START_AND_RELOAD {
+                IosAdHelper.shared.reloadAdsAfterTrackingDecision()
+            }
         }
     }
 

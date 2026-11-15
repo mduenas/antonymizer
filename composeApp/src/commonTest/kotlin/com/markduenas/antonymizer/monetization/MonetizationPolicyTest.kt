@@ -112,6 +112,110 @@ class MonetizationPolicyTest {
                 consentFlowStarted = false
             )
         )
+        assertEquals(
+            CONSENT_IGNORE,
+            consentLifecycleCode(
+                presentable = true,
+                kotlinReady = true,
+                consentFlowStarted = true,
+                consentFlowFinished = false,
+                canRequestAds = true,
+                attNotDetermined = true,
+                attAlreadyRequested = false
+            )
+        )
+    }
+
+    @Test
+    fun inactiveFormReturnRetriesTrackingOnNextActivation() {
+        assertEquals(
+            CONSENT_RETRY_TRACKING,
+            consentLifecycleCode(
+                presentable = true,
+                kotlinReady = true,
+                consentFlowStarted = true,
+                consentFlowFinished = true,
+                canRequestAds = true,
+                attNotDetermined = true,
+                attAlreadyRequested = false
+            )
+        )
+        assertEquals(
+            CONSENT_IGNORE,
+            consentLifecycleCode(
+                presentable = false,
+                kotlinReady = true,
+                consentFlowStarted = true,
+                consentFlowFinished = true,
+                canRequestAds = true,
+                attNotDetermined = true,
+                attAlreadyRequested = false
+            )
+        )
+        assertEquals(
+            CONSENT_IGNORE,
+            consentLifecycleCode(
+                presentable = true,
+                kotlinReady = true,
+                consentFlowStarted = true,
+                consentFlowFinished = true,
+                canRequestAds = true,
+                attNotDetermined = true,
+                attAlreadyRequested = true
+            )
+        )
+    }
+
+    @Test
+    fun failedConsentUpdateWithoutStoredConsentRetries() {
+        assertEquals(
+            CONSENT_RETRY_UPDATE,
+            postConsentInfoCode(updateFailed = true, canRequestAds = false)
+        )
+        assertEquals(
+            CONSENT_PRESENT_FORM,
+            postConsentInfoCode(updateFailed = true, canRequestAds = true)
+        )
+        assertEquals(
+            CONSENT_PRESENT_FORM,
+            postConsentInfoCode(updateFailed = false, canRequestAds = false)
+        )
+    }
+
+    @Test
+    fun privacyOptionsGrantStartsAdsAfterTrackingIsResolved() {
+        assertEquals(
+            CONSENT_START_ADS,
+            afterPrivacyOptionsCode(
+                canRequestAds = true,
+                attNotDetermined = false,
+                sdkAlreadyStarted = false
+            )
+        )
+        assertEquals(
+            CONSENT_REQUEST_TRACKING,
+            afterPrivacyOptionsCode(
+                canRequestAds = true,
+                attNotDetermined = true,
+                sdkAlreadyStarted = false
+            )
+        )
+        assertEquals(
+            CONSENT_STOP,
+            afterPrivacyOptionsCode(
+                canRequestAds = false,
+                attNotDetermined = false,
+                sdkAlreadyStarted = false
+            )
+        )
+        assertEquals(
+            CONSENT_START_AND_RELOAD,
+            afterPrivacyOptionsCode(
+                canRequestAds = true,
+                attNotDetermined = false,
+                sdkAlreadyStarted = true
+            )
+        )
     }
 
     @Test
