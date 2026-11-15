@@ -7,41 +7,77 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
 /**
- * iOS implementation of BillingManager.
- * Currently a stub - StoreKit integration can be added later.
- * For now, ads are disabled by default on iOS.
+ * StoreKit 2 implementation. Swift owns transactions. This class writes the
+ * shared ads-removed flag and the purchase state Compose already collects.
  */
 class BillingManagerIos(
     private val settingsStorage: SettingsStorage,
     private val scope: CoroutineScope
-) : BillingManager {
+) : BillingManager, IosBillingListener {
 
-    private val _purchaseState = MutableStateFlow<PurchaseState>(PurchaseState.Unavailable("iOS billing not implemented"))
+    private val entitlementApplier = EntitlementApplier { removed ->
+        settingsStorage.setAdsRemoved(removed)
+    }
+
+    private val _purchaseState = MutableStateFlow<PurchaseState>(PurchaseState.NotInitialized)
     override val purchaseState: StateFlow<PurchaseState> = _purchaseState.asStateFlow()
 
-    // Default to ads removed on iOS since we don't have ad implementation
     override val adsRemoved: StateFlow<Boolean> = settingsStorage.adsRemoved
-        .stateIn(scope, SharingStarted.WhileSubscribed(5000), true)
+        .stateIn(scope, SharingStarted.WhileSubscribed(5000), false)
 
-    private val _removeAdsPrice = MutableStateFlow<String?>("$2.99")
+    private val _removeAdsPrice = MutableStateFlow<String?>(null)
     override val removeAdsPrice: StateFlow<String?> = _removeAdsPrice.asStateFlow()
 
+    private var initialized = false
+
     override fun initialize() {
-        // TODO: Implement StoreKit integration
+        if (initialized) return
+        initialized = true
+        IosBillingBridge.listener = this
+        val provider = NativeBillingProviderHolder.provider
+        if (provider == null) {
+            _purchaseState.value = PurchaseState.Unavailable("Purchases are not available")
+            return
+        }
+        provider.start(BillingManager.PRODUCT_REMOVE_ADS)
     }
 
     override fun endConnection() {
-        // No-op for iOS stub
+        // StoreKit's transaction listener lives with the process.
     }
 
     override fun purchaseRemoveAds() {
-        // TODO: Implement StoreKit purchase
-        _purchaseState.value = PurchaseState.Unavailable("iOS purchases not yet available")
+        val provider = NativeBillingProviderHolder.provider
+        if (provider == null) {
+            _purchaseState.value = PurchaseState.Unavailable("Purchases are not available")
+            return
+        }
+        provider.purchaseRemoveAds()
     }
 
     override fun restorePurchases() {
-        // TODO: Implement StoreKit restore
+        val provider = NativeBillingProviderHolder.provider
+        if (provider == null) {
+            _purchaseState.value = PurchaseState.Unavailable("Purchases are not available")
+            return
+        }
+        provider.restorePurchases()
+    }
+
+    override fun onPrice(price: String?) {
+        _removeAdsPrice.value = price
+    }
+
+    override fun onEntitlement(adsRemoved: Boolean, generation: Long) {
+        scope.launch {
+            entitlementApplier.apply(generation, adsRemoved)
+        }
+    }
+
+    override fun onState(state: String, message: String?) {
+        _purchaseState.value = purchaseStateFromBridge(state, message)
     }
 }

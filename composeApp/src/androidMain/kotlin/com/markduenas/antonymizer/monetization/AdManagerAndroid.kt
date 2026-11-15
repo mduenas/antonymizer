@@ -73,6 +73,9 @@ class AdManagerAndroid(
     private val _rewardedReady = MutableStateFlow(false)
     override val rewardedReady: StateFlow<Boolean> = _rewardedReady.asStateFlow()
 
+    private val _privacyOptionsRequired = MutableStateFlow(false)
+    override val privacyOptionsRequired: StateFlow<Boolean> = _privacyOptionsRequired.asStateFlow()
+
     override val adsRemoved: StateFlow<Boolean> = settingsStorage.adsRemoved
         .stateIn(scope, SharingStarted.WhileSubscribed(5000), false)
 
@@ -165,29 +168,19 @@ class AdManagerAndroid(
 
     override fun showInterstitialIfEligible(onComplete: () -> Unit) {
         scope.launch(Dispatchers.Main) {
-            // Check if ads are removed
-            if (adsRemoved.first()) {
-                Log.d(TAG, "Ads removed, skipping interstitial")
-                onComplete()
-                return@launch
-            }
-
-            // Check cooldown
-            val lastShown = settingsStorage.lastInterstitialTime.first()
-            val now = System.currentTimeMillis()
-            if (now - lastShown < AdManager.INTERSTITIAL_COOLDOWN_MS) {
-                Log.d(TAG, "Interstitial cooldown active, skipping")
-                onComplete()
-                return@launch
-            }
-
-            // Check if ad is ready
             val ad = interstitialAd
             val activity = activityRef?.get()
-
-            if (ad == null || activity == null) {
-                Log.d(TAG, "Interstitial not ready or no activity")
-                loadInterstitial() // Try to load for next time
+            val lastShown = settingsStorage.lastInterstitialTime.first()
+            if (
+                ad == null || activity == null || !InterstitialPolicy.shouldShow(
+                    adsRemoved = adsRemoved.first(),
+                    lastShownAtMillis = lastShown,
+                    nowMillis = System.currentTimeMillis(),
+                    adLoaded = true
+                )
+            ) {
+                Log.d(TAG, "Interstitial not eligible")
+                if (ad == null) loadInterstitial()
                 onComplete()
                 return@launch
             }
@@ -283,5 +276,9 @@ class AdManagerAndroid(
 
     override suspend fun recordInterstitialShown() {
         settingsStorage.setLastInterstitialTime(System.currentTimeMillis())
+    }
+
+    override fun presentPrivacyOptions() {
+        // UMP is iOS-only in this pass. Android has no consent form to present.
     }
 }

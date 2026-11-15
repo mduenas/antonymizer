@@ -50,6 +50,12 @@ sealed class PurchaseState {
     /** Purchase completed successfully */
     data object PurchaseSuccess : PurchaseState()
 
+    /**
+     * Ask to Buy is waiting on approval. The purchase button stays enabled so a
+     * declined request, which sends no further transaction, does not trap the user.
+     */
+    data class AwaitingApproval(val message: String) : PurchaseState()
+
     /** Purchase failed or was cancelled */
     data class PurchaseError(val message: String) : PurchaseState()
 

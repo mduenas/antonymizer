@@ -13,6 +13,7 @@ data class MonetizationState(
     val adsRemoved: StateFlow<Boolean> get() = adManager.adsRemoved
     val interstitialReady: StateFlow<Boolean> get() = adManager.interstitialReady
     val rewardedReady: StateFlow<Boolean> get() = adManager.rewardedReady
+    val privacyOptionsRequired: StateFlow<Boolean> get() = adManager.privacyOptionsRequired
     val removeAdsPrice: StateFlow<String?> get() = billingManager.removeAdsPrice
     val purchaseState: StateFlow<PurchaseState> get() = billingManager.purchaseState
 }

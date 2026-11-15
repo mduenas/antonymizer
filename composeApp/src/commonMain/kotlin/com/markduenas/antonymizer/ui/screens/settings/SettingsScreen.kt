@@ -26,6 +26,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import com.markduenas.antonymizer.monetization.PurchaseState
+import com.markduenas.antonymizer.monetization.canStartRemoveAdsPurchase
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -45,12 +46,14 @@ fun SettingsScreen(
     adsRemoved: Boolean = false,
     removeAdsPrice: String? = null,
     purchaseState: PurchaseState = PurchaseState.NotInitialized,
+    privacyOptionsRequired: Boolean = false,
     onPlayerNameChange: (String) -> Unit,
     onSoundEnabledChange: (Boolean) -> Unit,
     onVibrationEnabledChange: (Boolean) -> Unit,
     onClearData: () -> Unit,
     onRemoveAdsPurchase: () -> Unit = {},
     onRestorePurchases: () -> Unit = {},
+    onPrivacyOptionsClick: () -> Unit = {},
     onBackClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -199,6 +202,10 @@ fun SettingsScreen(
                             )
                         }
                     }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    TextButton(onClick = onRestorePurchases) {
+                        Text("Restore Purchases")
+                    }
                 } else {
                     // Not purchased - show purchase option
                     Row(
@@ -221,7 +228,7 @@ fun SettingsScreen(
                         Spacer(modifier = Modifier.width(8.dp))
                         Button(
                             onClick = onRemoveAdsPurchase,
-                            enabled = purchaseState is PurchaseState.Ready
+                            enabled = canStartRemoveAdsPurchase(purchaseState)
                         ) {
                             Text(removeAdsPrice ?: "$2.99")
                         }
@@ -233,6 +240,14 @@ fun SettingsScreen(
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(
                                 text = "Processing purchase...",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                        is PurchaseState.AwaitingApproval -> {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = purchaseState.message,
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.primary
                             )
@@ -283,6 +298,12 @@ fun SettingsScreen(
                         }
                     }
                 }
+            }
+        }
+
+        if (privacyOptionsRequired) {
+            TextButton(onClick = onPrivacyOptionsClick) {
+                Text("Ad privacy choices")
             }
         }
 

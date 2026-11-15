@@ -3,16 +3,15 @@ import GoogleMobileAds
 import UIKit
 import ComposeApp
 
-/// Singleton class to manage AdMob ads on iOS
-/// Implements NativeAdProvider protocol from Kotlin
+/// AdMob interstitial and rewarded ads. The SDK starts only after
+/// IosConsentCoordinator reports that UMP allows ad requests.
+/// Implements NativeAdProvider from Kotlin.
 @objc public class IosAdHelper: NSObject, NativeAdProvider {
 
-    // MARK: - Singleton
     @objc public static let shared = IosAdHelper()
 
-    // MARK: - Ad Unit IDs
-    // Debug builds always use Google sample test units so TestFlight-style
-    // local runs never generate real impressions. Release uses production.
+    // Debug uses Google's iOS sample units. Release, TestFlight, and the App Store
+    // use the production units. Do not copy the Android sample unit ids here.
     #if DEBUG
     private let interstitialAdUnitID = "ca-app-pub-3940256099942544/4411468910"
     private let rewardedAdUnitID = "ca-app-pub-3940256099942544/1712485313"
@@ -21,169 +20,207 @@ import ComposeApp
     private let rewardedAdUnitID = "ca-app-pub-7540731406850248/6932731399"
     #endif
 
-    // MARK: - Ad State
+    /// Paste the hash the SDK prints on a physical device. Empty means no override.
+    /// Sample ad units in debug are already test ads, so this list is for Release.
+    private let admobTestDeviceIds: [String] = []
+
     private var interstitialAd: GADInterstitialAd?
     private var rewardedAd: GADRewardedAd?
 
-    // NativeAdProvider protocol properties
-    public var isInterstitialReady: Bool {
-        return interstitialAd != nil
-    }
+    public var isInterstitialReady: Bool { interstitialAd != nil }
+    public var isRewardedReady: Bool { rewardedAd != nil }
 
-    public var isRewardedReady: Bool {
-        return rewardedAd != nil
-    }
+    public private(set) var privacyOptionsRequired: Bool = false
 
-    // Store the root view controller for presenting ads
     private weak var rootViewController: UIViewController?
+    private var adsReady = false
+    private var sdkStartRequested = false
 
-    public func setRootViewController(_ vc: UIViewController) {
-        rootViewController = vc
-    }
-
-    // MARK: - Cooldown tracking
-    private var lastInterstitialTime: TimeInterval = 0
-    private let interstitialCooldown: TimeInterval = 180 // 3 minutes
-
-    // MARK: - Callbacks
+    private var interstitialPresented: (() -> Void)?
     private var interstitialCompletion: (() -> Void)?
     private var rewardedCallback: (() -> Void)?
     private var rewardedDismissedCallback: (() -> Void)?
 
-    // MARK: - Initialization
     private override init() {
         super.init()
     }
 
-    /// Initialize the Google Mobile Ads SDK (NativeAdProvider protocol)
+    public func setRootViewController(_ viewController: UIViewController) {
+        rootViewController = viewController
+    }
+
+    /// Kotlin asks for ads. Consent, not this call, starts the SDK.
     public func initialize() {
-        GADMobileAds.sharedInstance().start { status in
+        IosConsentCoordinator.shared.noteKotlinReady()
+    }
+
+    /// Called when UMP's canRequestAds is true. ATT is not a gate: a denial still
+    /// loads with GADRequest, and the SDK omits the IDFA. See shouldRequestAds.
+    func startSdk() {
+        guard !sdkStartRequested else { return }
+        sdkStartRequested = true
+        if !admobTestDeviceIds.isEmpty {
+            GADMobileAds.sharedInstance().requestConfiguration.testDeviceIdentifiers = admobTestDeviceIds
+        }
+        GADMobileAds.sharedInstance().start { [weak self] status in
             print("AdMob SDK initialized: \(status.adapterStatusesByClassName)")
-            self.loadInterstitial()
-            self.loadRewarded()
+            self?.adsReady = true
+            self?.loadInterstitial()
+            self?.loadRewarded()
         }
     }
 
-    // MARK: - Interstitial Ads (NativeAdProvider protocol)
+    /// After an ATT decision, drop any ad that was requested without the new status.
+    func reloadAdsAfterTrackingDecision() {
+        guard adsReady else { return }
+        interstitialAd = nil
+        rewardedAd = nil
+        publishReady()
+        loadInterstitial()
+        loadRewarded()
+    }
+
+    func setPrivacyOptionsRequired(_ required: Bool) {
+        privacyOptionsRequired = required
+        IosConsentBridge.shared.privacyOptionsRequiredChanged(required: required)
+    }
 
     public func loadInterstitial() {
-        guard interstitialAd == nil else { return }
-
+        guard adsReady, interstitialAd == nil else { return }
         let request = GADRequest()
         GADInterstitialAd.load(withAdUnitID: interstitialAdUnitID, request: request) { [weak self] ad, error in
             if let error = error {
                 print("Failed to load interstitial ad: \(error.localizedDescription)")
+                self?.publishReady()
                 return
             }
-            print("Interstitial ad loaded")
             self?.interstitialAd = ad
             self?.interstitialAd?.fullScreenContentDelegate = self
+            self?.publishReady()
         }
     }
-
-    /// Show interstitial (NativeAdProvider protocol)
-    /// Cooldown is managed by Kotlin side
-    public func showInterstitial(onComplete: @escaping () -> Void) {
-        guard let viewController = rootViewController ?? UIApplication.shared.windows.first?.rootViewController else {
-            print("No view controller available")
-            onComplete()
-            return
-        }
-
-        guard let ad = interstitialAd else {
-            print("Interstitial not ready")
-            loadInterstitial()
-            onComplete()
-            return
-        }
-
-        interstitialCompletion = onComplete
-        lastInterstitialTime = Date().timeIntervalSince1970
-        ad.present(fromRootViewController: viewController)
-    }
-
-    // MARK: - Rewarded Ads (NativeAdProvider protocol)
 
     public func loadRewarded() {
-        guard rewardedAd == nil else { return }
-
+        guard adsReady, rewardedAd == nil else { return }
         let request = GADRequest()
         GADRewardedAd.load(withAdUnitID: rewardedAdUnitID, request: request) { [weak self] ad, error in
             if let error = error {
                 print("Failed to load rewarded ad: \(error.localizedDescription)")
+                self?.publishReady()
                 return
             }
-            print("Rewarded ad loaded")
             self?.rewardedAd = ad
             self?.rewardedAd?.fullScreenContentDelegate = self
+            self?.publishReady()
         }
     }
 
-    /// Show rewarded ad (NativeAdProvider protocol)
+    /// Cooldown is stamped from adWillPresentFullScreenContent, not from dismiss.
+    public func showInterstitial(onPresented: @escaping () -> Void, onComplete: @escaping () -> Void) {
+        guard let viewController = viewControllerForPresentation() else {
+            onComplete()
+            return
+        }
+        guard let ad = interstitialAd else {
+            loadInterstitial()
+            onComplete()
+            return
+        }
+        interstitialPresented = onPresented
+        interstitialCompletion = onComplete
+        ad.present(fromRootViewController: viewController)
+    }
+
     public func showRewarded(onRewarded: @escaping () -> Void, onDismissed: @escaping () -> Void) {
-        guard let viewController = rootViewController ?? UIApplication.shared.windows.first?.rootViewController else {
-            print("No view controller available")
+        guard let viewController = viewControllerForPresentation() else {
             onDismissed()
             return
         }
-
         guard let ad = rewardedAd else {
-            print("Rewarded ad not ready")
             loadRewarded()
             onDismissed()
             return
         }
-
         rewardedCallback = onRewarded
         rewardedDismissedCallback = onDismissed
-
         ad.present(fromRootViewController: viewController) { [weak self] in
-            print("User earned reward")
             self?.rewardedCallback?()
             self?.rewardedCallback = nil
             self?.rewardedDismissedCallback = nil
         }
     }
-}
 
-// MARK: - GADFullScreenContentDelegate
+    public func presentPrivacyOptions() {
+        IosConsentCoordinator.shared.presentPrivacyOptions()
+    }
+
+    private func viewControllerForPresentation() -> UIViewController? {
+        if let rootViewController, rootViewController.viewIfLoaded?.window != nil {
+            return rootViewController
+        }
+        return nil
+    }
+
+    private func publishReady() {
+        IosAdsBridge.shared.readyChanged(
+            interstitialReady: interstitialAd != nil,
+            rewardedReady: rewardedAd != nil
+        )
+    }
+
+    private func finishInterstitial() {
+        interstitialAd = nil
+        interstitialPresented = nil
+        let completion = interstitialCompletion
+        interstitialCompletion = nil
+        loadInterstitial()
+        publishReady()
+        completion?()
+    }
+
+    private func finishRewarded(callDismissed: Bool) {
+        rewardedAd = nil
+        rewardedCallback = nil
+        let dismissedCallback = rewardedDismissedCallback
+        rewardedDismissedCallback = nil
+        loadRewarded()
+        publishReady()
+        if callDismissed {
+            dismissedCallback?()
+        }
+    }
+}
 
 extension IosAdHelper: GADFullScreenContentDelegate {
 
-    public func adDidDismissFullScreenContent(_ ad: GADFullScreenPresentingAd) {
-        print("Ad dismissed")
-
+    public func adWillPresentFullScreenContent(_ ad: GADFullScreenPresentingAd) {
+        // Stamp the cooldown when the interstitial is shown, matching Android's
+        // onAdShowedFullScreenContent rather than dismiss time.
         if ad is GADInterstitialAd {
-            interstitialAd = nil
-            loadInterstitial()
-            interstitialCompletion?()
-            interstitialCompletion = nil
-        } else if ad is GADRewardedAd {
-            rewardedAd = nil
-            loadRewarded()
-            // If rewardedCallback is still set, user dismissed without earning reward
-            if rewardedCallback != nil {
-                rewardedDismissedCallback?()
-                rewardedCallback = nil
-                rewardedDismissedCallback = nil
-            }
+            interstitialPresented?()
+            interstitialPresented = nil
         }
     }
 
-    public func ad(_ ad: GADFullScreenPresentingAd, didFailToPresentFullScreenContentWithError error: Error) {
-        print("Ad failed to present: \(error.localizedDescription)")
-
+    public func adDidDismissFullScreenContent(_ ad: GADFullScreenPresentingAd) {
         if ad is GADInterstitialAd {
-            interstitialAd = nil
-            loadInterstitial()
-            interstitialCompletion?()
-            interstitialCompletion = nil
+            finishInterstitial()
         } else if ad is GADRewardedAd {
-            rewardedAd = nil
-            loadRewarded()
-            rewardedDismissedCallback?()
-            rewardedCallback = nil
-            rewardedDismissedCallback = nil
+            // The reward handler clears rewardedCallback before dismiss.
+            finishRewarded(callDismissed: rewardedCallback != nil)
+        }
+    }
+
+    public func ad(
+        _ ad: GADFullScreenPresentingAd,
+        didFailToPresentFullScreenContentWithError error: Error
+    ) {
+        print("Ad failed to present: \(error.localizedDescription)")
+        if ad is GADInterstitialAd {
+            interstitialPresented = nil
+            finishInterstitial()
+        } else if ad is GADRewardedAd {
+            finishRewarded(callDismissed: true)
         }
     }
 }
