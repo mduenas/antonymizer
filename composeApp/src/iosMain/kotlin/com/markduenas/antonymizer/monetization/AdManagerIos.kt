@@ -13,11 +13,8 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 /**
- * iOS implementation of AdManager using native AdMob SDK via NativeAdProvider.
- *
- * Ad unit IDs are selected in AdHelper.swift:
- * - Debug: Google sample interstitial/rewarded test units
- * - Release: production ca-app-pub-7540731406850248/... units
+ * iOS ads go through [NativeAdProvider], implemented by IosAdHelper.swift.
+ * The Google Mobile Ads SDK starts only after UMP says ads can be requested.
  */
 class AdManagerIos(
     private val settingsStorage: SettingsStorage,
@@ -33,51 +30,73 @@ class AdManagerIos(
     private val _rewardedReady = MutableStateFlow(false)
     override val rewardedReady: StateFlow<Boolean> = _rewardedReady.asStateFlow()
 
+    private val _privacyOptionsRequired = MutableStateFlow(false)
+    override val privacyOptionsRequired: StateFlow<Boolean> = _privacyOptionsRequired.asStateFlow()
+
     override val adsRemoved: StateFlow<Boolean> = settingsStorage.adsRemoved
         .stateIn(scope, SharingStarted.WhileSubscribed(5000), false)
 
+    private var initialized = false
+
     override fun initialize() {
+        if (initialized) return
+        initialized = true
+        IosAdsBridge.onReadyChanged = { interstitialReady, rewardedReady ->
+            _interstitialReady.value = interstitialReady
+            _rewardedReady.value = rewardedReady
+        }
+        IosConsentBridge.onPrivacyOptionsRequired = { required ->
+            _privacyOptionsRequired.value = required
+        }
+        _privacyOptionsRequired.value = nativeProvider?.isPrivacyOptionsRequired == true
         nativeProvider?.initialize()
         updateAdReadyState()
     }
 
     override fun loadInterstitial() {
         nativeProvider?.loadInterstitial()
-        updateAdReadyState()
     }
 
     override fun loadRewarded() {
         nativeProvider?.loadRewarded()
-        updateAdReadyState()
     }
 
     private fun updateAdReadyState() {
-        _interstitialReady.value = nativeProvider?.isInterstitialReady ?: false
-        _rewardedReady.value = nativeProvider?.isRewardedReady ?: false
+        val provider = nativeProvider ?: return
+        _interstitialReady.value = provider.isInterstitialReady
+        _rewardedReady.value = provider.isRewardedReady
     }
 
     override fun showInterstitialIfEligible(onComplete: () -> Unit) {
         scope.launch(Dispatchers.Main) {
-            // Check if ads are removed
-            if (adsRemoved.first()) {
-                onComplete()
-                return@launch
-            }
-
             val provider = nativeProvider
             if (provider == null) {
                 onComplete()
                 return@launch
             }
-
-            provider.showInterstitial {
-                updateAdReadyState()
-                scope.launch {
-                    recordInterstitialShown()
-                    settingsStorage.incrementAdsWatched()
-                }
+            val show = InterstitialPolicy.shouldShow(
+                adsRemoved = adsRemoved.first(),
+                lastShownAtMillis = settingsStorage.lastInterstitialTime.first(),
+                nowMillis = currentTimeMillis(),
+                adLoaded = provider.isInterstitialReady
+            )
+            if (!show) {
+                if (!provider.isInterstitialReady) provider.loadInterstitial()
                 onComplete()
+                return@launch
             }
+            provider.showInterstitial(
+                onPresented = {
+                    scope.launch {
+                        recordInterstitialShown()
+                        settingsStorage.incrementAdsWatched()
+                    }
+                },
+                onComplete = {
+                    updateAdReadyState()
+                    onComplete()
+                }
+            )
         }
     }
 
@@ -88,7 +107,6 @@ class AdManagerIos(
                 onDismissed()
                 return@launch
             }
-
             provider.showRewarded(
                 onRewarded = {
                     updateAdReadyState()
@@ -111,5 +129,9 @@ class AdManagerIos(
 
     override suspend fun recordInterstitialShown() {
         settingsStorage.setLastInterstitialTime(currentTimeMillis())
+    }
+
+    override fun presentPrivacyOptions() {
+        nativeProvider?.presentPrivacyOptions()
     }
 }

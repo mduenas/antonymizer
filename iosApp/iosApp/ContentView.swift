@@ -4,22 +4,20 @@ import ComposeApp
 
 struct ComposeView: UIViewControllerRepresentable {
     func makeUIViewController(context: Context) -> UIViewController {
-        // Set up the native ad provider before creating the main view controller
         NativeAdProviderHolder.shared.provider = IosAdHelper.shared
+        NativeBillingProviderHolder.shared.provider = IosBillingHelper.shared
 
         let viewController = MainViewControllerKt.MainViewController()
-
-        // Set the root view controller for ad presentation
-        DispatchQueue.main.async {
-            IosAdHelper.shared.setRootViewController(viewController)
-        }
-
+        IosAdHelper.shared.setRootViewController(viewController)
+        IosConsentCoordinator.shared.setRootViewController(viewController)
         return viewController
     }
 
     func updateUIViewController(_ uiViewController: UIViewController, context: Context) {
-        // Update root view controller reference if needed
         IosAdHelper.shared.setRootViewController(uiViewController)
+        IosConsentCoordinator.shared.setRootViewController(uiViewController)
+        // No-ops until the view's window is attached and the app is active.
+        IosConsentCoordinator.shared.startIfReady()
     }
 }
 
@@ -27,8 +25,8 @@ struct ContentView: View {
     var body: some View {
         ComposeView()
             .ignoresSafeArea()
+            .onAppear {
+                IosConsentCoordinator.shared.startIfReady()
+            }
     }
 }
-
-
-

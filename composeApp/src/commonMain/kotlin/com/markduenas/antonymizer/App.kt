@@ -56,6 +56,7 @@ fun App(settingsStorage: SettingsStorage, monetizationState: MonetizationState) 
             val rewardedReady by monetizationState.rewardedReady.collectAsState()
             val removeAdsPrice by monetizationState.removeAdsPrice.collectAsState()
             val purchaseState by monetizationState.purchaseState.collectAsState()
+            val privacyOptionsRequired by monetizationState.privacyOptionsRequired.collectAsState()
 
             NavHost(
                 navController = navController,
@@ -197,6 +198,10 @@ fun App(settingsStorage: SettingsStorage, monetizationState: MonetizationState) 
                         },
                         onRestorePurchases = {
                             monetizationState.billingManager.restorePurchases()
+                        },
+                        privacyOptionsRequired = privacyOptionsRequired,
+                        onPrivacyOptionsClick = {
+                            monetizationState.adManager.presentPrivacyOptions()
                         },
                         onBackClick = {
                             navController.popBackStack()

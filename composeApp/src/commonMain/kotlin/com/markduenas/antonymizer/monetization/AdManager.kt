@@ -16,6 +16,12 @@ interface AdManager {
     /** Whether a rewarded ad is ready to show */
     val rewardedReady: StateFlow<Boolean>
 
+    /**
+     * True when UMP requires a privacy-options entry point.
+     * Android stays false. iOS updates this after the consent request.
+     */
+    val privacyOptionsRequired: StateFlow<Boolean>
+
     /** Initialize the ad SDK */
     fun initialize()
 
@@ -49,6 +55,9 @@ interface AdManager {
 
     /** Update last interstitial timestamp */
     suspend fun recordInterstitialShown()
+
+    /** Present the UMP privacy-options form. No-op when it is not required. */
+    fun presentPrivacyOptions()
 
     companion object {
         const val INTERSTITIAL_COOLDOWN_MS = 3 * 60 * 1000L // 3 minutes

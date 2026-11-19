@@ -87,11 +87,13 @@ android {
     }
 
     signingConfigs {
-        create("release") {
-            storeFile = file(keystoreProperties.getProperty("storeFile") ?: "")
-            storePassword = keystoreProperties.getProperty("storePassword") ?: ""
-            keyAlias = keystoreProperties.getProperty("keyAlias") ?: ""
-            keyPassword = keystoreProperties.getProperty("keyPassword") ?: ""
+        if (keystorePropertiesFile.exists()) {
+            create("release") {
+                storeFile = file(keystoreProperties.getProperty("storeFile") ?: "")
+                storePassword = keystoreProperties.getProperty("storePassword") ?: ""
+                keyAlias = keystoreProperties.getProperty("keyAlias") ?: ""
+                keyPassword = keystoreProperties.getProperty("keyPassword") ?: ""
+            }
         }
     }
 
@@ -108,7 +110,9 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            signingConfig = signingConfigs.getByName("release")
+            if (keystorePropertiesFile.exists()) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
     compileOptions {
@@ -119,5 +123,25 @@ android {
 
 dependencies {
     debugImplementation(libs.compose.uiTooling)
+}
+
+gradle.taskGraph.whenReady {
+    if (keystorePropertiesFile.exists()) return@whenReady
+    val injectedStore = findProperty("android.injected.signing.store.file")?.toString()
+    if (!injectedStore.isNullOrBlank()) return@whenReady
+    val releasePackaging = allTasks.filter { task ->
+        val name = task.name
+        name.contains("Release") && (
+            name.startsWith("assemble") ||
+                name.startsWith("bundle") ||
+                name.startsWith("package")
+            )
+    }
+    if (releasePackaging.isNotEmpty()) {
+        throw GradleException(
+            "Release build requires keystore.properties or -Pandroid.injected.signing.store.file. " +
+                "Refusing to assemble an unsigned release artifact."
+        )
+    }
 }
 

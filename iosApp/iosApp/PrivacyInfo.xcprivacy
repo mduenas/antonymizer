@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!--
+	  App target only. NSPrivacyTracking is true because the app requests ATT
+	  and the Google Mobile Ads SDK sends the IDFA when the user allows it.
+	  NSPrivacyTrackingDomains is intentionally empty. Listing Google's ad hosts
+	  here makes Apple block those requests when ATT is denied, which breaks ads.
+	  The Google Mobile Ads and User Messaging Platform pods ship their own
+	  privacy manifests, and Xcode aggregates them. Do not copy their domains
+	  or collected-data types into this file.
+	  NSPrivacyAccessedAPITypes is empty: this target does not call UserDefaults
+	  or file-timestamp APIs directly. DataStore writes a file under Documents.
+	  After an archive, add a required-reason entry only if the privacy report
+	  attributes an API to the app target.
+	-->
+	<key>NSPrivacyTracking</key>
+	<true/>
+	<key>NSPrivacyTrackingDomains</key>
+	<array/>
+	<key>NSPrivacyCollectedDataTypes</key>
+	<array/>
+	<key>NSPrivacyAccessedAPITypes</key>
+	<array/>
+</dict>
+</plist>

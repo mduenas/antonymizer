@@ -1,5 +1,6 @@
 package com.markduenas.antonymizer
 
+import androidx.compose.runtime.remember
 import androidx.compose.ui.window.ComposeUIViewController
 import com.markduenas.antonymizer.data.source.SettingsStorage
 import com.markduenas.antonymizer.data.source.createDataStore
@@ -10,21 +11,22 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 
+private class IosAppGraph(
+    val settingsStorage: SettingsStorage,
+    val monetizationState: MonetizationState
+)
+
 fun MainViewController() = ComposeUIViewController {
-    val dataStore = createDataStore()
-    val settingsStorage = SettingsStorage(dataStore)
-
-    // Create a coroutine scope for iOS
-    val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
-
-    // Initialize iOS monetization stubs
-    val adManager = AdManagerIos(settingsStorage, scope)
-    val billingManager = BillingManagerIos(settingsStorage, scope)
-
-    adManager.initialize()
-    billingManager.initialize()
-
-    val monetizationState = MonetizationState(adManager, billingManager)
-
-    App(settingsStorage, monetizationState)
+    // The content lambda recomposes. One graph keeps a single StoreKit listener.
+    val graph = remember {
+        val dataStore = createDataStore()
+        val settingsStorage = SettingsStorage(dataStore)
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+        val adManager = AdManagerIos(settingsStorage, scope)
+        val billingManager = BillingManagerIos(settingsStorage, scope)
+        adManager.initialize()
+        billingManager.initialize()
+        IosAppGraph(settingsStorage, MonetizationState(adManager, billingManager))
+    }
+    App(graph.settingsStorage, graph.monetizationState)
 }

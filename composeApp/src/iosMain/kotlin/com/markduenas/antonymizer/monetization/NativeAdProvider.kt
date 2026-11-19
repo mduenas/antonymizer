@@ -8,11 +8,21 @@ interface NativeAdProvider {
     val isInterstitialReady: Boolean
     val isRewardedReady: Boolean
 
+    // `is` prefix so Kotlin/Native exports this Bool as `isPrivacyOptionsRequired`.
+    // A name without `is` is emitted as `privacyOptionsRequired_`.
+    val isPrivacyOptionsRequired: Boolean
+
     fun initialize()
     fun loadInterstitial()
     fun loadRewarded()
-    fun showInterstitial(onComplete: () -> Unit)
+
+    /**
+     * [onPresented] runs when the interstitial is about to appear, which is when
+     * the cooldown is stamped. [onComplete] runs when it closes or cannot be shown.
+     */
+    fun showInterstitial(onPresented: () -> Unit, onComplete: () -> Unit)
     fun showRewarded(onRewarded: () -> Unit, onDismissed: () -> Unit)
+    fun presentPrivacyOptions()
 }
 
 /**
@@ -21,4 +31,25 @@ interface NativeAdProvider {
  */
 object NativeAdProviderHolder {
     var provider: NativeAdProvider? = null
+}
+
+/**
+ * Swift reports load and dismiss here so the Compose ready flags stay current.
+ * Boolean function parameters export as Swift Bool. A Boolean lambda does not.
+ */
+object IosAdsBridge {
+    var onReadyChanged: ((Boolean, Boolean) -> Unit)? = null
+
+    fun readyChanged(interstitialReady: Boolean, rewardedReady: Boolean) {
+        onReadyChanged?.invoke(interstitialReady, rewardedReady)
+    }
+}
+
+/** Swift reports UMP privacy-options requirement changes. */
+object IosConsentBridge {
+    var onPrivacyOptionsRequired: ((Boolean) -> Unit)? = null
+
+    fun privacyOptionsRequiredChanged(required: Boolean) {
+        onPrivacyOptionsRequired?.invoke(required)
+    }
 }
